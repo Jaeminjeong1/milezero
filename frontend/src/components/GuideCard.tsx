@@ -1,19 +1,21 @@
-import { Buildings, CheckCircle, NavigationArrow, ThumbsUp, Warning } from "@phosphor-icons/react";
+import {
+  Buildings,
+  CheckCircle,
+  NavigationArrow,
+  ShieldCheck,
+  Truck,
+} from "@phosphor-icons/react";
 
 export function GuideCard({
   text,
   confidence,
-  feedback,
-  loading,
-  onHelpful,
-  onChanged,
+  completed,
+  onCompleteDelivery,
 }: {
   text: string;
   confidence: number;
-  feedback?: "HELPFUL" | "CONTRADICT";
-  loading: boolean;
-  onHelpful(): void;
-  onChanged(): void;
+  completed: boolean;
+  onCompleteDelivery(): void;
 }) {
   return (
     <section className="guide-card" aria-labelledby="guide-title">
@@ -22,24 +24,26 @@ export function GuideCard({
         <div className="route-dash" />
         <div className="entrance-node"><NavigationArrow weight="fill" aria-hidden="true" /></div>
       </div>
-      <div className="guide-status"><span><CheckCircle weight="fill" aria-hidden="true" />기사 확인 완료</span><strong>신뢰도 {Math.round(confidence * 100)}%</strong></div>
-      <h2 id="guide-title">검증된 현장 가이드</h2>
-      <div className="guide-action-text"><small>권장 진입</small><strong>{text}</strong></div>
-      <div className="guide-meta"><span>1톤 차량</span><span>방금 확인</span><span>합성 시나리오</span></div>
-      {feedback ? (
-        <div className={feedback === "HELPFUL" ? "feedback-success" : "feedback-warning"} role="status">
-          {feedback === "HELPFUL" ? <ThumbsUp weight="fill" aria-hidden="true" /> : <Warning weight="fill" aria-hidden="true" />}
-          <span>{feedback === "HELPFUL" ? "제보자에게 5P가 추가됐어요" : "변경 신호를 반영해 다시 검증할게요"}</span>
-        </div>
-      ) : (
-        <div className="guide-feedback">
-          <p>배송에 이 정보가 도움이 됐나요?</p>
-          <div className="binary-actions">
-            <button type="button" className="confirm-button" disabled={loading} onClick={onHelpful}><ThumbsUp weight="fill" aria-hidden="true" />도움됐어요</button>
-            <button type="button" className="subtle-button" disabled={loading} onClick={onChanged}><Warning weight="fill" aria-hidden="true" />정보가 달라요</button>
-          </div>
-        </div>
-      )}
+      <div className="guide-status">
+        <span><CheckCircle weight="fill" aria-hidden="true" />기사 확인 완료</span>
+        <strong>신뢰도 {Math.round(confidence * 100)}%</strong>
+      </div>
+      <h2 id="guide-title">출발 전 현장 가이드</h2>
+      <div className="guide-action-text"><small>권장 진입·하역</small><strong>{text}</strong></div>
+      <div className="guide-meta"><span>1톤 차량</span><span>검증된 정보</span><span>합성 시나리오</span></div>
+      <div className="guide-policy">
+        <ShieldCheck weight="fill" aria-hidden="true" />
+        <span>정보가 다르다는 <strong>독립 확인 2건</strong>이 쌓이면 안내를 중단하고 새 후보를 다시 검증해요.</span>
+      </div>
+      <button
+        type="button"
+        className="primary-button"
+        disabled={completed}
+        onClick={onCompleteDelivery}
+      >
+        <Truck weight="fill" aria-hidden="true" />
+        {completed ? "배송 완료 · 현장 확인 중" : "배송 완료했어요"}
+      </button>
     </section>
   );
 }

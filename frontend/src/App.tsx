@@ -1,19 +1,23 @@
 import { useState } from "react";
-import { Bell, NavigationArrow } from "@phosphor-icons/react";
+import { Bell } from "@phosphor-icons/react";
 
 import type { MileZeroApi } from "./types";
 import { AppShell } from "./components/AppShell";
 import { ContributionSheet } from "./components/ContributionSheet";
 import { DeliveryCard } from "./components/DeliveryCard";
 import { ErrorSheet } from "./components/ErrorSheet";
+import { GuideCard } from "./components/GuideCard";
 import { ProcessingSheet } from "./components/ProcessingSheet";
 import { QuestionSheet } from "./components/QuestionSheet";
 import { ReporterProgress } from "./components/ReporterProgress";
+import { ReceiverFeedbackSheet } from "./components/ReceiverFeedbackSheet";
+import { ReceiverProgress } from "./components/ReceiverProgress";
 import { RewardSheet } from "./components/RewardSheet";
 import { RoleHero } from "./components/RoleHero";
 import { StatusCard } from "./components/StatusCard";
 import { TopTabs, type DeliveryTab } from "./components/TopTabs";
 import { useReporterJourney } from "./hooks/useReporterJourney";
+import { useReceiverJourney } from "./hooks/useReceiverJourney";
 
 export function App({
   api,
@@ -24,10 +28,18 @@ export function App({
 }) {
   const [tab, setTab] = useState<DeliveryTab>("reporter");
   const reporter = useReporterJourney(api, { autoDetectDelayMs });
+  const receiver = useReceiverJourney(api);
+
+  const changeTab = (nextTab: DeliveryTab) => {
+    setTab(nextTab);
+    if (nextTab === "receiver" && receiver.phase === "idle") {
+      void receiver.openGuide();
+    }
+  };
 
   return (
     <AppShell>
-      <TopTabs active={tab} onChange={setTab} />
+      <TopTabs active={tab} onChange={changeTab} />
       <header className="app-header">
         <div>
           <p className="brand-kicker">MOVE SMARTER</p>
@@ -55,11 +67,25 @@ export function App({
               onReplay={reporter.replay}
             />
           </div>
+        ) : receiver.phase === "loading_guide" || receiver.phase === "idle" ? (
+          <section className="loading-next" role="status">
+            <span className="loading-ring" />
+            <h2>검증된 현장 지식을 불러오고 있어요</h2>
+          </section>
+        ) : receiver.guide ? (
+          <div className="role-content receiver-content">
+            <ReceiverProgress phase={receiver.phase} />
+            <GuideCard
+              text={receiver.guide.text}
+              confidence={receiver.guide.confidence}
+              completed={receiver.phase !== "guide_ready"}
+              onCompleteDelivery={receiver.completeDelivery}
+            />
+          </div>
         ) : (
           <section className="receiver-placeholder">
-            <NavigationArrow weight="fill" aria-hidden="true" />
-            <h2>검증된 현장 가이드를 준비했어요</h2>
-            <p>배송 출발 전이나 배송지 근처에서 필요한 정보만 먼저 보여드려요.</p>
+            <h2>확인된 현장 가이드가 아직 없어요</h2>
+            <p>다른 기사들의 독립 확인이 끝나면 이곳에서 안내할게요.</p>
           </section>
         )}
       </div>
@@ -84,11 +110,29 @@ export function App({
       {tab === "reporter" && reporter.phase === "rewarded" && reporter.receipt ? (
         <RewardSheet
           points={reporter.receipt.awardedPoints}
-          onNext={() => setTab("receiver")}
+          onNext={() => changeTab("receiver")}
         />
       ) : null}
-      {reporter.phase === "error" && reporter.errorMessage ? (
+      {tab === "reporter" && reporter.phase === "error" && reporter.errorMessage ? (
         <ErrorSheet message={reporter.errorMessage} onRetry={() => void reporter.retry()} />
+      ) : null}
+      {tab === "receiver" &&
+      (receiver.phase === "fact_feedback" ||
+        receiver.phase === "utility_feedback" ||
+        receiver.phase === "feedback_complete") ? (
+        <ReceiverFeedbackSheet
+          phase={receiver.phase}
+          loading={receiver.feedbackLoading}
+          completionMessage={receiver.completionMessage}
+          onFact={(feedback) => void receiver.answerFact(feedback)}
+          onUtility={(feedback) => void receiver.answerUtility(feedback)}
+        />
+      ) : null}
+      {tab === "receiver" && receiver.phase === "error" && receiver.errorMessage ? (
+        <ErrorSheet
+          message={receiver.errorMessage}
+          onRetry={() => void receiver.retryFeedback()}
+        />
       ) : null}
     </AppShell>
   );

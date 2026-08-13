@@ -1,0 +1,77 @@
+// @vitest-environment jsdom
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import type { MileZeroApi } from "../types";
+import { useReceiverJourney } from "./useReceiverJourney";
+
+function feedbackResult() {
+  return {
+    accepted: true,
+    status: "VERIFIED" as const,
+    confidence: 0.65,
+    helpfulCount: 0,
+    notHelpfulCount: 0,
+    utilityScore: 0.5,
+  };
+}
+
+function createApi(overrides: Partial<MileZeroApi> = {}): MileZeroApi {
+  return {
+    createQuestion: vi.fn(async () => null),
+    submitReport: vi.fn(),
+    getKnowledge: vi.fn(async () => ({
+      items: [
+        {
+          claimId: "demo-guide-claim",
+          text: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+          confidence: 0.65,
+        },
+      ],
+      pendingConfirmation: null,
+    })),
+    recordFeedback: vi.fn(async () => feedbackResult()),
+    ...overrides,
+  };
+}
+
+describe("도움 받는 기사 여정", () => {
+  it("안내를 먼저 보여주고 배송 완료 후 사실과 유용성을 순서대로 받는다", async () => {
+    const api = createApi();
+    const { result } = renderHook(() => useReceiverJourney(api));
+
+    await act(async () => result.current.openGuide());
+    expect(result.current.phase).toBe("guide_ready");
+    expect(result.current.guide?.text).toContain("B2");
+
+    act(() => result.current.completeDelivery());
+    expect(result.current.phase).toBe("fact_feedback");
+    await act(async () => result.current.answerFact("CONFIRM"));
+    expect(result.current.phase).toBe("utility_feedback");
+    await act(async () => result.current.answerUtility("HELPFUL"));
+    expect(result.current.phase).toBe("feedback_complete");
+  });
+
+  it("유용성 전송만 실패하면 재시도에서 사실 피드백을 중복 전송하지 않는다", async () => {
+    const recordFeedback = vi
+      .fn<MileZeroApi["recordFeedback"]>()
+      .mockResolvedValueOnce(feedbackResult())
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce(feedbackResult());
+    const api = createApi({ recordFeedback });
+    const { result } = renderHook(() => useReceiverJourney(api));
+
+    await act(async () => result.current.openGuide());
+    act(() => result.current.completeDelivery());
+    await act(async () => result.current.answerFact("CONFIRM"));
+    await act(async () => result.current.answerUtility("NOT_HELPFUL"));
+    expect(result.current.phase).toBe("error");
+
+    await act(async () => result.current.retryFeedback());
+
+    expect(result.current.phase).toBe("feedback_complete");
+    expect(recordFeedback).toHaveBeenCalledTimes(3);
+    expect(recordFeedback.mock.calls.filter(([input]) => input.feedback === "CONFIRM")).toHaveLength(1);
+    expect(recordFeedback.mock.calls.filter(([input]) => input.feedback === "NOT_HELPFUL")).toHaveLength(2);
+  });
+});

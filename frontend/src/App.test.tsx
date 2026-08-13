@@ -119,4 +119,58 @@ describe("MileZero 역할별 홈", () => {
     expect(await screen.findByText("불편 없음으로 기록했어요")).toBeVisible();
     expect(api.submitReport).not.toHaveBeenCalled();
   });
+
+  it("사전 가이드를 보여준 뒤 배송 완료 후 사실과 도움 여부를 따로 묻는다", async () => {
+    const api = createApi();
+    api.recordFeedback = vi.fn<MileZeroApi["recordFeedback"]>(async () => ({
+      accepted: true,
+      status: "VERIFIED",
+      confidence: 0.65,
+      helpfulCount: 0,
+      notHelpfulCount: 1,
+      utilityScore: 0.35,
+    }));
+    const user = userEvent.setup();
+    render(<App api={api} autoDetectDelayMs={60_000} />);
+
+    await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
+    expect(
+      await screen.findByText(
+        "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", {
+        name: "안내받은 정보가 실제 현장과 같았나요?",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "배송 완료했어요" }));
+    expect(
+      screen.getByRole("heading", {
+        name: "안내받은 정보가 실제 현장과 같았나요?",
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "정보가 달랐어요" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "이 안내가 배송에 도움이 됐나요?",
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "도움은 없었어요" }));
+
+    expect(
+      await screen.findByText(
+        "변경 신호를 저장했어요. 독립 확인 2건이면 안내를 중단해요.",
+      ),
+    ).toBeVisible();
+    expect(api.recordFeedback).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ feedback: "CONTRADICT" }),
+    );
+    expect(api.recordFeedback).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ feedback: "NOT_HELPFUL" }),
+    );
+  });
 });
