@@ -264,7 +264,22 @@ describe("백엔드 HTTP API", () => {
       url: "/v1/knowledge?placeId=place-1&vehicleType=1TON",
       headers: { "x-driver-id": "driver-c" },
     });
-    expect(guideResponse.json().items[0].text).toContain("후문");
+    expect(guideResponse.json().items[0]).toEqual(
+      expect.objectContaining({
+        text: expect.stringContaining("후문"),
+        type: "ENTRANCE_RECOMMENDATION",
+        vehicleType: "1TON",
+        timeCondition: null,
+        reportedAt: expect.any(String),
+      }),
+    );
+
+    const ownGuideResponse = await server.inject({
+      method: "GET",
+      url: "/v1/knowledge?placeId=place-1&vehicleType=1TON",
+      headers: { "x-driver-id": "driver-a" },
+    });
+    expect(ownGuideResponse.json().items).toEqual([]);
   });
 
   it("기사 식별자가 없는 제보 요청을 거부한다", async () => {

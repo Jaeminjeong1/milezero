@@ -50,6 +50,10 @@ describe("서버 의존성 구성", () => {
       expect.objectContaining({
         claimId: "demo-guide-claim",
         text: expect.stringContaining("B2"),
+        type: "INTERNAL_ROUTE",
+        vehicleType: "1TON",
+        timeCondition: null,
+        reportedAt: expect.any(String),
       }),
     );
   });

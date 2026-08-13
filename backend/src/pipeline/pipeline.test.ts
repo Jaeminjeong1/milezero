@@ -169,8 +169,21 @@ describe("MileZero 백엔드 파이프라인", () => {
     });
     expect(after.pendingConfirmation).toBeNull();
     expect(after.items).toEqual([
-      expect.objectContaining({ text: "1톤 차량은 후문으로 진입" }),
+      expect.objectContaining({
+        text: "1톤 차량은 후문으로 진입",
+        type: "ENTRANCE_RECOMMENDATION",
+        vehicleType: "1TON",
+        timeCondition: null,
+        reportedAt: expect.any(String),
+      }),
     ]);
+
+    const reporterKnowledge = await pipeline.getDeliveryKnowledge({
+      placeId,
+      driverId: "driver-a",
+      vehicleType: "1TON",
+    });
+    expect(reporterKnowledge.items).toEqual([]);
   });
 
   it("제보자는 자기 지식을 검증할 수 없고 독립 검증 때 추가 포인트를 받는다", async () => {

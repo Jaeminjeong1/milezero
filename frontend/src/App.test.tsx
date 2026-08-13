@@ -37,12 +37,16 @@ function createApi(): MileZeroApi {
       claimStatuses: ["CANDIDATE"],
       awardedPoints: 10,
     })),
-    getKnowledge: vi.fn(async () => ({
+    getKnowledge: vi.fn<MileZeroApi["getKnowledge"]>(async () => ({
       items: [
         {
           claimId: "demo-guide-claim",
           text: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+          type: "INTERNAL_ROUTE",
+          vehicleType: "1TON",
+          timeCondition: null,
           confidence: 0.65,
+          reportedAt: "2026-08-13T00:00:00.000Z",
         },
       ],
       pendingConfirmation: null,

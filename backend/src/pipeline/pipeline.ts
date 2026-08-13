@@ -173,11 +173,18 @@ export class BackendPipeline {
     );
 
     return {
-      items: verified.slice(0, 5).map((claim) => ({
-        claimId: claim.id,
-        text: claim.value,
-        confidence: claim.confidence,
-      })),
+      items: verified
+        .filter((claim) => claim.reporterId !== input.driverId)
+        .slice(0, 5)
+        .map((claim) => ({
+          claimId: claim.id,
+          text: claim.value,
+          type: claim.type,
+          vehicleType: claim.vehicleType,
+          timeCondition: claim.timeCondition,
+          confidence: claim.confidence,
+          reportedAt: claim.createdAt,
+        })),
       pendingConfirmation: candidate
         ? { claimId: candidate.id, text: candidate.value }
         : null,

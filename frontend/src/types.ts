@@ -35,8 +35,26 @@ export type ReportReceipt = {
   awardedPoints: 10;
 };
 
+export type KnowledgeClaimType =
+  | "ENTRANCE_RECOMMENDATION"
+  | "UNLOADING_LOCATION"
+  | "VEHICLE_RESTRICTION"
+  | "ACCESS_PROCEDURE"
+  | "ELEVATOR_GUIDE"
+  | "INTERNAL_ROUTE";
+
+export type DeliveryKnowledgeItem = {
+  claimId: string;
+  text: string;
+  type: KnowledgeClaimType;
+  vehicleType: VehicleType;
+  timeCondition: string | null;
+  confidence: number;
+  reportedAt: string;
+};
+
 export type DeliveryKnowledge = {
-  items: Array<{ claimId: string; text: string; confidence: number }>;
+  items: DeliveryKnowledgeItem[];
   pendingConfirmation: { claimId: string; text: string } | null;
 };
 
