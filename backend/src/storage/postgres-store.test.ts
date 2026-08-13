@@ -121,6 +121,17 @@ describe("PostgreSQL 지식 저장소", () => {
     );
   });
 
+  it("초기화 요청을 DB의 원자적 예시 데이터 복원 함수에 위임한다", async () => {
+    const query = vi.fn(async () => ({ rows: [{ data: true }] }));
+    const store = new PostgresKnowledgeStore({ query });
+
+    await expect(store.resetToExampleData()).resolves.toBeUndefined();
+
+    expect(query).toHaveBeenCalledWith(
+      "select public.mz_reset_to_example_data() as data",
+    );
+  });
+
   it("production 연결에는 DATABASE_URL이 필요하다", () => {
     expect(() => createPostgresKnowledgeStoreFromEnv({})).toThrow(
       "DATABASE_URL이 필요합니다.",

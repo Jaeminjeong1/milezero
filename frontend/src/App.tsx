@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Bell } from "@phosphor-icons/react";
 
 import type { MileZeroApi } from "./types";
-import { ApiError } from "./api";
 import { AppShell } from "./components/AppShell";
 import { ContributionSheet } from "./components/ContributionSheet";
 import { DeliveryCard } from "./components/DeliveryCard";
@@ -52,18 +51,13 @@ export function App({ api }: { api: MileZeroApi }) {
       reporter.reset();
       receiver.reset();
       setTab("reporter");
-      setResetNotice("초기 지식과 포인트를 복원했어요. 다시 시연할 수 있어요.");
+      setResetNotice(
+        "모든 제보·검증·포인트를 지우고 B2 예시 데이터만 복원했어요.",
+      );
     } catch (error) {
-      if (error instanceof ApiError && error.code === "SIMULATION_RESET_DISABLED") {
-        reporter.reset();
-        receiver.reset();
-        setTab("reporter");
-        setResetNotice("운영 데이터는 유지하고 화면만 처음으로 돌렸어요.");
-      } else {
-        setResetError(
-          error instanceof Error ? error.message : "초기화하지 못했어요.",
-        );
-      }
+      setResetError(
+        error instanceof Error ? error.message : "초기화하지 못했어요.",
+      );
     } finally {
       setResetting(false);
     }

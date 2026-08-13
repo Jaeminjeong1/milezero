@@ -6,6 +6,7 @@ import { BackendPipeline, type ClaimMatcher } from "@/pipeline/pipeline";
 import type { QuestionGenerator } from "@/questions/planner";
 import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
 import { createPostgresKnowledgeStoreFromEnv } from "@/storage/postgres-store";
+import type { KnowledgeStore } from "@/storage/contracts";
 
 type RuntimeMode = "demo" | "judge" | "production";
 
@@ -17,6 +18,11 @@ type ModelGateway = {
 
 type DependencyFactories = {
   createGeminiGateway?: (env: NodeJS.ProcessEnv) => ModelGateway;
+  createPostgresStore?: (env: NodeJS.ProcessEnv) => ResettablePostgresStore;
+};
+
+type ResettablePostgresStore = KnowledgeStore & {
+  resetToExampleData(): Promise<void>;
 };
 
 export function createDependencies(
@@ -36,13 +42,15 @@ export function createDependencies(
   const createGateway =
     factories.createGeminiGateway ?? createGeminiGatewayFromEnv;
   const gateway = createGateway(env);
-  const store = createPostgresKnowledgeStoreFromEnv(env);
+  const createStore =
+    factories.createPostgresStore ?? createPostgresKnowledgeStoreFromEnv;
+  const store = createStore(env);
   return {
     mode: "production" as const,
     pipeline: createPipeline(store, gateway),
     readiness: () => store.getPointBalance("readiness-probe"),
     inspect: undefined,
-    resetSimulation: undefined,
+    resetSimulation: () => store.resetToExampleData(),
   };
 }
 
@@ -63,7 +71,7 @@ function createSeededDependencies(
 }
 
 function createPipeline(
-  store: InMemoryKnowledgeStore | ReturnType<typeof createPostgresKnowledgeStoreFromEnv>,
+  store: KnowledgeStore,
   gateway: ModelGateway,
 ) {
   return new BackendPipeline({

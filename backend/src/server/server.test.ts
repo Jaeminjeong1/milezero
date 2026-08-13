@@ -242,7 +242,7 @@ describe("백엔드 HTTP API", () => {
     expect(resetCount).toBe(1);
   });
 
-  it("운영 모드에서는 시뮬레이션 초기화를 거부한다", async () => {
+  it("초기화 핸들러가 없는 서버는 데이터 변경 요청을 거부한다", async () => {
     const { server } = createTestServer();
     servers.push(server);
 

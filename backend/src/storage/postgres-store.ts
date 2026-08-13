@@ -94,6 +94,13 @@ const ContributionReceiptSchema = z.object({
 export class PostgresKnowledgeStore implements KnowledgeStore {
   constructor(private readonly client: QueryClient) {}
 
+  async resetToExampleData(): Promise<void> {
+    const result = await this.client.query(
+      "select public.mz_reset_to_example_data() as data",
+    );
+    z.literal(true).parse(result.rows[0]?.data);
+  }
+
   async getContributionReceipt(
     idempotencyKey: string,
     driverId: string,

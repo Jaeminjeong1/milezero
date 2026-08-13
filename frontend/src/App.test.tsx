@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { MileZeroApi } from "./types";
 import { App } from "./App";
+import { ApiError } from "./api";
 
 function createApi(overrides: Partial<MileZeroApi> = {}): MileZeroApi {
   return {
@@ -290,5 +291,44 @@ describe("MileZero 역할별 홈", () => {
       "true",
     );
     expect(screen.getByText("배송 마찰을 자동으로 찾고 있어요")).toBeVisible();
+    expect(
+      screen.getAllByText(
+        "모든 제보·검증·포인트를 지우고 B2 예시 데이터만 복원했어요.",
+      )[0],
+    ).toBeVisible();
+  });
+
+  it("DB 초기화가 실패하면 화면만 초기화한 것처럼 처리하지 않는다", async () => {
+    const api = createApi({
+      resetSimulation: vi.fn(async () => {
+        throw new ApiError(
+          "예시 데이터 복원에 실패했습니다.",
+          403,
+          "SIMULATION_RESET_DISABLED",
+        );
+      }),
+    });
+    const user = userEvent.setup();
+    render(<App api={api} />);
+
+    await user.click(
+      screen.getAllByRole("button", { name: /출입구 반복 탐색/ })[0],
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "출입구 반복 탐색이 감지됐어요",
+      }),
+    ).toBeVisible();
+
+    await user.click(
+      screen.getAllByRole("button", { name: "처음부터 다시" })[0],
+    );
+
+    expect(
+      await screen.findByText("예시 데이터 복원에 실패했습니다."),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "출입구 반복 탐색이 감지됐어요" }),
+    ).toBeVisible();
   });
 });

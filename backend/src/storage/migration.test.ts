@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { PGlite } from "@electric-sql/pglite";
@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = fileURLToPath(
   new URL("../../migrations/001_initial.sql", import.meta.url),
+);
+const migrationsDirectory = fileURLToPath(
+  new URL("../../migrations", import.meta.url),
 );
 
 describe("Railway PostgreSQL 영속 저장 스키마", () => {
@@ -171,6 +174,76 @@ describe("Railway PostgreSQL 영속 저장 스키마", () => {
 
     expect(second.rows[0].receipt).toEqual(first.rows[0].receipt);
     expect(counts.rows[0]).toEqual({ reports: 1, claims: 1, points: 1 });
+    await database.close();
+  }, 30_000);
+
+  it("모든 운영 데이터를 지운 뒤 B2 예시 지식만 원자적으로 복원한다", async () => {
+    const database = new PGlite();
+    const migrations = (await readdir(migrationsDirectory))
+      .filter((filename) => filename.endsWith(".sql"))
+      .sort();
+    for (const filename of migrations) {
+      await database.exec(
+        await readFile(`${migrationsDirectory}/${filename}`, "utf8"),
+      );
+    }
+
+    await database.query("select mz_commit_contribution($1::jsonb)", [
+      JSON.stringify({
+        idempotency_key: "judge-created-report",
+        place_id: "judge-place",
+        driver_id: "judge-driver",
+        sanitized_summary: "임시 제보",
+        removed_pii_types: [],
+        operations: [
+          {
+            kind: "NEW",
+            claim: {
+              claim_type: "UNLOADING_LOCATION",
+              value: "임시 하역 위치",
+              vehicle_type: "ALL",
+              time_condition: null,
+            },
+          },
+        ],
+      }),
+    ]);
+
+    await expect(
+      database.query<{ reset: boolean }>(
+        "select mz_reset_to_example_data() as reset",
+      ),
+    ).resolves.toMatchObject({ rows: [{ reset: true }] });
+
+    const counts = await database.query<{
+      reports: number;
+      claims: number;
+      evidence: number;
+      points: number;
+    }>(`select
+      (select count(*)::int from reports) reports,
+      (select count(*)::int from claims) claims,
+      (select count(*)::int from claim_evidence) evidence,
+      (select count(*)::int from points_ledger) points`);
+    const claims = await database.query<{
+      place_id: string;
+      value: string;
+      status: string;
+    }>("select place_id, value, status::text from claims");
+
+    expect(counts.rows[0]).toEqual({
+      reports: 1,
+      claims: 1,
+      evidence: 3,
+      points: 0,
+    });
+    expect(claims.rows).toEqual([
+      {
+        place_id: "demo-office-tower",
+        value: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+        status: "VERIFIED",
+      },
+    ]);
     await database.close();
   }, 30_000);
 });

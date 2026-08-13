@@ -60,7 +60,7 @@ corepack pnpm --filter @milezero/frontend dev
 - `POST /v1/reports`: 선택 답변과 선택적 멀티모달 응답 분석, 개인정보 제거, 후보 지식 및 기본 포인트 저장
 - `GET /v1/knowledge`: 검증된 가이드와 별도의 후보 확인 요청 조회
 - `POST /v1/feedback`: 사실(`CONFIRM`, `CONTRADICT`)과 유용성(`HELPFUL`, `NOT_HELPFUL`) 피드백 반영
-- `POST /v1/simulation/reset`: `demo`·`judge`의 초기 지식·포인트·피드백 복원, `production`에서는 403으로 거부
+- `POST /v1/simulation/reset`: 모든 제보·지식·검증·포인트를 지우고 B2 심사 예시 데이터만 원자적으로 복원
 - `GET /health`: 배포 상태 확인
 - `GET /ready`: 현재 모드의 저장소 연결을 포함한 요청 처리 준비 상태 확인
 
@@ -107,7 +107,7 @@ corepack pnpm qa:demo
 4. `도움 받는 기사`에서 배송 전에 검증된 후문·B2 가이드가 먼저 노출되는 것을 확인한다.
 5. `배송 완료했어요`를 누르고 사실 여부와 도움 여부를 각각 한 번씩 답한다.
 6. 사실과 도움됨이면 안내를 유지하고, 도움 없음만 있으면 순위만 조정한다. 서로 다른 기사 2명의 `정보가 달랐어요`가 쌓이면 해당 지식은 `CONFLICT`가 되어 안내에서 제외된다.
-7. 다시 시작하려면 왼쪽 또는 모바일 상단의 `처음부터 다시`를 눌러 초기 지식·포인트·피드백까지 복원한다.
+7. 다시 시작하려면 왼쪽 또는 모바일 상단의 `처음부터 다시`를 누른다. PostgreSQL의 제보·지식·검증·포인트는 모두 삭제되고 B2 심사 예시 데이터만 남는다.
 
 ### Railway 배포
 
@@ -139,7 +139,7 @@ MILEZERO_MODE=production
 CORS_ORIGINS=https://${{RAILWAY_PUBLIC_DOMAIN}}
 ```
 
-`PORT`와 `HOST`는 Railway/Docker가 설정하므로 직접 등록하지 않는다. `production` 컨테이너는 시작 시 schema migration을 먼저 실행하고 `/ready`에서 PostgreSQL 준비 상태를 확인한다. 첫 배포 후 Web 서비스의 Settings → Networking에서 `Generate Domain`을 누르면 된다. 별도 프런트 URL을 사용할 때만 해당 origin을 `CORS_ORIGINS`에 추가한다.
+`PORT`와 `HOST`는 Railway/Docker가 설정하므로 직접 등록하지 않는다. `production` 컨테이너는 시작 시 schema migration을 먼저 실행하고 `/ready`에서 PostgreSQL 준비 상태를 확인한다. `처음부터 다시`는 앱 데이터 테이블을 비운 뒤 B2 예시 report 1건, 검증된 claim 1건과 예시 검증 근거만 다시 넣는다. migration ledger와 schema는 유지되며, 초기화 중 오류가 발생하면 트랜잭션 전체가 rollback된다. 첫 배포 후 Web 서비스의 Settings → Networking에서 `Generate Domain`을 누르면 된다. 별도 프런트 URL을 사용할 때만 해당 origin을 `CORS_ORIGINS`에 추가한다.
 
 ```bash
 railway up

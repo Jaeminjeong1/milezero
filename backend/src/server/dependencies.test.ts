@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
 
 import { createDependencies } from "./dependencies";
 
@@ -98,6 +100,29 @@ describe("서버 의존성 구성", () => {
         { createGeminiGateway: () => fakeGeminiGateway },
       ),
     ).toThrow(/DATABASE_URL/);
+  });
+
+  it("production 초기화는 PostgreSQL 데이터를 예시 지식만 남기도록 복원한다", async () => {
+    const resetToExampleData = vi.fn(async () => undefined);
+    const store = Object.assign(new InMemoryKnowledgeStore(), {
+      resetToExampleData,
+    });
+    const dependencies = createDependencies(
+      {
+        MILEZERO_MODE: "production",
+        GEMINI_API_KEY: "test-key",
+        GEMINI_MODEL: "gemini-test",
+        DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+      },
+      {
+        createGeminiGateway: () => fakeGeminiGateway,
+        createPostgresStore: () => store,
+      },
+    );
+
+    await dependencies.resetSimulation?.();
+
+    expect(resetToExampleData).toHaveBeenCalledOnce();
   });
 
   it("judge 모드는 실제 Gemini 계약과 복원 가능한 초기 지식을 함께 사용한다", async () => {

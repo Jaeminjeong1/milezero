@@ -69,7 +69,7 @@ export function GpsSimulationPanel({
         onClick={onReset}
       >
         <ArrowCounterClockwise weight="bold" aria-hidden="true" />
-        {resetting ? "초기 데이터를 복원하고 있어요" : "처음부터 다시"}
+        {resetting ? "데이터를 정리하고 있어요" : "처음부터 다시"}
       </button>
       {notice ? <p className="simulation-notice" role="status">{notice}</p> : null}
     </section>
