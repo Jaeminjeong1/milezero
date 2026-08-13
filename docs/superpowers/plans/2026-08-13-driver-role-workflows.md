@@ -41,7 +41,7 @@
 - Produces: `QuestionPlan = { shouldAsk; category; questions: QuestionItem[] }`
 - Guarantees: `questions.length` is 1 or 2 and every `choices.length` is 4 or 5
 
-- [ ] **Step 1: Write failing schema and fallback tests**
+- [x] **Step 1: Write failing schema and fallback tests**
 
 ```ts
 it("1~2개 질문과 질문별 4~5개 선택지만 허용한다", () => {
@@ -65,13 +65,13 @@ it("1~2개 질문과 질문별 4~5개 선택지만 허용한다", () => {
 
 Add a planner test where the model returns a blaming or malformed plan and assert that fallback contains one or two questions, four choices each, and the neutral choice in the first question.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `corepack pnpm --filter @milezero/backend exec vitest run src/domain/contracts.test.ts src/questions/planner.test.ts`
 
 Expected: FAIL because `questions` does not exist and the old schema accepts a single `question`/`choices` pair.
 
-- [ ] **Step 3: Implement question array schema, prompts and deterministic demo**
+- [x] **Step 3: Implement question array schema, prompts and deterministic demo**
 
 Use this shape in `contracts.ts`:
 
@@ -109,13 +109,13 @@ export const QuestionPlanSchema = z.object({
 
 Update Gemini system instruction to request one primary question and at most one context-specific follow-up. Update every fallback and demo gateway to return the new structure with stable IDs `friction_type` and `actionable_detail`.
 
-- [ ] **Step 4: Verify GREEN and Gemini JSON schema**
+- [x] **Step 4: Verify GREEN and Gemini JSON schema**
 
 Run: `corepack pnpm --filter @milezero/backend exec vitest run src/domain/contracts.test.ts src/questions/planner.test.ts src/gemini/gateway.test.ts`
 
 Expected: PASS; Gemini test confirms `responseJsonSchema` describes `questions` rather than top-level `question`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/domain backend/src/questions backend/src/gemini backend/src/demo/gateway.ts
@@ -139,7 +139,7 @@ git commit -m "feat: LLM 다단계 선택 질문 계약 추가"
 - Produces: `ContributionInput = { answers: QuestionAnswer[]; text?; media? }`
 - API: `POST /v1/reports contribution.answers` contains 1 or 2 answers
 
-- [ ] **Step 1: Write failing analyzer and API tests**
+- [x] **Step 1: Write failing analyzer and API tests**
 
 ```ts
 it("추가 설명 없이 선택형 답변만 분석한다", async () => {
@@ -163,13 +163,13 @@ it("추가 설명 없이 선택형 답변만 분석한다", async () => {
 
 Add server tests that accept one/two valid answers without text/media and reject zero answers, three answers, blank IDs and answers longer than 120 characters.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `corepack pnpm --filter @milezero/backend exec vitest run src/knowledge/analyzer.test.ts src/server/server.test.ts`
 
 Expected: FAIL because only `answerChoice` is accepted and text/media is currently required.
 
-- [ ] **Step 3: Implement answer arrays through API, analyzer and Gemini**
+- [x] **Step 3: Implement answer arrays through API, analyzer and Gemini**
 
 Replace `answerChoice` with:
 
@@ -183,13 +183,13 @@ answers: Array<{
 
 Sanitize every `question` and `choice` before the Gemini call, pass them as `answers`, and include them in the Gemini knowledge extraction prompt. Keep text/media privacy handling unchanged. Update the HTTP schema to require 1~2 strict answer objects while text/media remain optional.
 
-- [ ] **Step 4: Verify GREEN and the complete demo API scenario**
+- [x] **Step 4: Verify GREEN and the complete demo API scenario**
 
 Run: `corepack pnpm --filter @milezero/backend exec vitest run src/knowledge/analyzer.test.ts src/gemini/gateway.test.ts src/pipeline/pipeline.test.ts src/server/server.test.ts src/demo/scenario.test.ts`
 
 Expected: PASS and the demo report receives 10P using `answers` plus its privacy-containing optional text.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/knowledge backend/src/gemini backend/src/pipeline backend/src/server backend/src/demo
@@ -222,7 +222,7 @@ git commit -m "feat: 선택형 답변 기반 제보 분석 연결"
 - Produces: `Evaluation = { status; confidence; helpfulCount; notHelpfulCount; utilityScore }`
 - Demo: `demo-office-tower` has a seeded verified guide for `demo-driver-b`
 
-- [ ] **Step 1: Write failing evaluator and duplicate-dimension tests**
+- [x] **Step 1: Write failing evaluator and duplicate-dimension tests**
 
 ```ts
 it("유용성 피드백은 사실 상태와 분리한다", () => {
@@ -247,13 +247,13 @@ it("독립 변경 신호 두 건이면 검증 지식을 중단한다", () => {
 
 Add store tests proving the same driver can submit one FACT and one UTILITY record, while a second record in either dimension is rejected.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `corepack pnpm --filter @milezero/backend exec vitest run src/validation/evaluator.test.ts src/pipeline/pipeline.test.ts src/storage/migration.test.ts`
 
 Expected: FAIL because `NOT_HELPFUL`, utility fields and the utility uniqueness boundary do not exist.
 
-- [ ] **Step 3: Implement feedback dimensions and persisted utility fields**
+- [x] **Step 3: Implement feedback dimensions and persisted utility fields**
 
 Use these feedback dimensions:
 
@@ -264,7 +264,7 @@ const UTILITY = new Set(["HELPFUL", "NOT_HELPFUL"]);
 
 Compute `utilityScore = clamp(0.5 + helpfulCount * 0.1 - notHelpfulCount * 0.15)`. Add `not_helpful_count integer default 0` and `utility_score numeric(4,3) default 0.5` to `claims`. Replace the single evidence uniqueness rule with one partial unique index for FACT and another for UTILITY. Extend Supabase row schemas and update RPC payloads.
 
-- [ ] **Step 4: Seed verified demo knowledge and verify guide filtering**
+- [x] **Step 4: Seed verified demo knowledge and verify guide filtering**
 
 Add constructor seed input to `InMemoryKnowledgeStore` and create a demo store containing:
 
@@ -283,13 +283,13 @@ Add constructor seed input to `InMemoryKnowledgeStore` and create a demo store c
 
 Seed one independent `CONFIRM` evidence so refreshing the claim preserves VERIFIED. Verify `/v1/knowledge` returns the seeded guide, then after two different drivers submit `CONTRADICT` it no longer appears.
 
-- [ ] **Step 5: Verify GREEN and migration behavior**
+- [x] **Step 5: Verify GREEN and migration behavior**
 
 Run: `corepack pnpm --filter @milezero/backend test`
 
 Expected: PASS; migration applies in PGlite, feedback dimensions are independently idempotent, `NOT_HELPFUL` does not change fact status, and two contradictions hide the guide.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src backend/supabase
@@ -322,7 +322,7 @@ git commit -m "feat: 사실과 유용성 기반 지식 갱신 추가"
 - Produces: `useReporterJourney(api, { autoDetectDelayMs })`
 - Produces: `completeDelivery()`, `selectAnswer(choice)`, `submitContribution({ text?, file? })`
 
-- [ ] **Step 1: Write failing role tabs and reporter journey tests**
+- [x] **Step 1: Write failing role tabs and reporter journey tests**
 
 ```tsx
 it("배송 완료 전에는 질문을 열지 않는다", async () => {
@@ -338,19 +338,19 @@ it("배송 완료 전에는 질문을 열지 않는다", async () => {
 
 Add App tests for exact tab labels, common hero in both tabs, visible workflow steps, first/second question progression, neutral exit, and a selection-only report request with no text/media.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `corepack pnpm --filter @milezero/frontend exec vitest run src/App.test.tsx src/hooks/useReporterJourney.test.tsx`
 
 Expected: FAIL because current tabs use delivery dates, questions auto-open before completion, and the contribution CTA requires text/file.
 
-- [ ] **Step 3: Implement role shell and reporter state machine**
+- [x] **Step 3: Implement role shell and reporter state machine**
 
 Rename `DeliveryTab` values to `reporter | receiver`. Render `RoleHero` above each role body. Auto timer only marks friction detected. `배송 완료했어요` calls `/v1/questions`, then `QuestionSheet` receives one `QuestionItem` and a `1/2` progress label. Keep selected answers in order.
 
 If the first answer is `불편하지 않았어요`, enter `no_issue` without calling `/v1/reports`. Otherwise finish one/two questions and open optional detail. `ContributionSheet` must enable `선택 답변만 보내고 10P 받기` even when text/file is empty.
 
-- [ ] **Step 4: Update typed API client and verify GREEN**
+- [x] **Step 4: Update typed API client and verify GREEN**
 
 Map frontend `QuestionPlan`, `ReportInput` and `createApiClient` to the backend contract. Verify the request body contains `answers` and never raw GPS coordinates.
 
@@ -358,7 +358,7 @@ Run: `corepack pnpm --filter @milezero/frontend test`
 
 Expected: PASS for tabs, role hero, delivery completion boundary, two questions, optional detail and immediate reward.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src
@@ -385,7 +385,7 @@ git commit -m "feat: 등록하는 기사 다단계 제보 흐름 구현"
 - Produces: `openGuide()`, `completeDelivery()`, `answerFact()`, `answerUtility()`, `retryFeedback()`
 - Calls: FACT API once and UTILITY API once for `demo-driver-b`
 
-- [ ] **Step 1: Write failing receiver state tests**
+- [x] **Step 1: Write failing receiver state tests**
 
 ```tsx
 it("안내를 먼저 보여주고 배송 완료 후 두 피드백을 순서대로 받는다", async () => {
@@ -404,13 +404,13 @@ it("안내를 먼저 보여주고 배송 완료 후 두 피드백을 순서대�
 
 Add a retry test where FACT succeeds and UTILITY fails; retry must send only the utility feedback. Add App tests for guide-before-feedback, `정보가 달랐어요`, `도움은 없었어요`, and the conflict policy explanation.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `corepack pnpm --filter @milezero/frontend exec vitest run src/hooks/useReceiverJourney.test.tsx src/App.test.tsx`
 
 Expected: FAIL because the current next-delivery flow asks candidate confirmation before showing a guide and has no separate completion/fact/utility steps.
 
-- [ ] **Step 3: Implement receiver state machine and feedback UI**
+- [x] **Step 3: Implement receiver state machine and feedback UI**
 
 Load only `knowledge.items[0]` for the receiver role. Add `배송 완료했어요` to `GuideCard`. `ReceiverFeedbackSheet` asks exact fact and utility questions one at a time. Send `CONFIRM`/`CONTRADICT`, then `HELPFUL`/`NOT_HELPFUL`, preserving completion of the first request if the second fails.
 
@@ -422,13 +422,13 @@ Display these completion messages:
 정보가 다름: "변경 신호를 저장했어요. 독립 확인 2건이면 안내를 중단해요."
 ```
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `corepack pnpm --filter @milezero/frontend test`
 
 Expected: PASS; guide is visible before completion and both feedback dimensions are submitted exactly once.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src
@@ -446,7 +446,7 @@ git commit -m "feat: 도움 받는 기사 사전 안내와 피드백 구현"
 - Documents: role tabs, reporter journey, receiver journey, feedback threshold
 - Verifies: one production URL serves SPA and API
 
-- [ ] **Step 1: Update docs to the implemented role flows**
+- [x] **Step 1: Update docs to the implemented role flows**
 
 Replace the previous `오늘 배송`/`다음 배송` walkthrough with:
 
@@ -457,7 +457,7 @@ Replace the previous `오늘 배송`/`다음 배송` walkthrough with:
 
 Document `NOT_HELPFUL`, two-independent-contradictions conflict threshold and the rule that conflict knowledge is not served.
 
-- [ ] **Step 2: Run complete automated verification**
+- [x] **Step 2: Run complete automated verification**
 
 ```bash
 corepack pnpm install --frozen-lockfile
@@ -470,7 +470,7 @@ corepack pnpm audit --prod
 
 Expected: all commands exit 0; demo QA reports privacy-safe storage, reporter 10P, seeded guide feedback and conflict filtering.
 
-- [ ] **Step 3: Run production server smoke test**
+- [x] **Step 3: Run production server smoke test**
 
 Start `MILEZERO_MODE=demo PORT=3100 corepack pnpm --filter @milezero/backend start` and verify:
 
@@ -480,17 +480,17 @@ GET /ready -> 200 { status: "ready" }
 GET /v1/missing -> 404 application/json
 ```
 
-- [ ] **Step 4: Run browser visual QA**
+- [x] **Step 4: Run browser visual QA**
 
 At 390×844 and 1280×900, complete both role flows. Verify exact role labels and common hero, no horizontal overflow, no console error, keyboard-accessible buttons, correct 1/2 question progress, guide-before-feedback order and the negative feedback completion message.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md docs
 git commit -m "docs: 기사 역할별 심사 시연 흐름 정리"
 ```
 
-- [ ] **Step 6: Final requirement audit**
+- [x] **Step 6: Final requirement audit**
 
 Map every requirement in `docs/superpowers/specs/2026-08-13-driver-role-workflows-design.md` to a passing backend test, frontend test, runtime response or browser observation. Do not mark complete while any item lacks direct evidence.
