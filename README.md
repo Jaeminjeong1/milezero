@@ -17,6 +17,16 @@ cp .env.example .env
 pnpm dev
 ```
 
+프런트와 API를 외부 키 없이 로컬에서 함께 시연하려면 다음 명령을 사용한다. 이 모드는 화면에 표시된 합성 시나리오만 사용한다.
+
+```bash
+pnpm dev:demo
+```
+
+- 웹앱: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Vite가 `/v1`, `/health`, `/ready`를 API로 프록시한다.
+
 필수 서버 환경변수:
 
 - `GEMINI_API_KEY`
@@ -24,6 +34,7 @@ pnpm dev
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CORS_ORIGINS` — 프런트엔드 origin allowlist, 여러 개면 쉼표로 구분
+- `MILEZERO_MODE` — 운영은 `production`, 외부 키 없는 합성 시연은 `demo`
 - `PORT` — 생략하면 `3000`
 
 Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
@@ -36,6 +47,8 @@ Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pi
 - `POST /v1/feedback`: `CONFIRM`, `CONTRADICT`, `HELPFUL` 피드백 반영
 - `GET /health`: 배포 상태 확인
 - `GET /ready`: Supabase RPC 연결을 포함한 요청 처리 준비 상태 확인
+
+프로덕션 빌드에서는 Fastify가 React 정적 파일과 API를 같은 도메인에서 제공하므로 배포 URL은 하나다.
 
 데모 단계에서는 기사 가명 ID를 `x-driver-id` 헤더로 전달한다. 외부 파일럿 전에는 이 헤더를 신뢰하지 않고 인증 토큰의 사용자 ID로 서버에서 교체해야 한다.
 
@@ -57,6 +70,15 @@ pnpm qa:demo
 ```
 
 `qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·Supabase 구성과는 분리된 QA fixture다.
+
+### 심사 시연 순서
+
+1. 홈 진입 약 1초 뒤 배송 마찰 질문이 자동으로 열린다.
+2. `출입구를 찾기 어려웠어요`를 선택하고 후문 정보를 입력한다.
+3. Gemini 처리 단계와 개인정보 제거 안내, 즉시 10P를 확인한다.
+4. `다음 기사 화면에서 확인하기`를 눌러 독립 기사 B의 `맞아요` 확인을 진행한다.
+5. 기사 C에게 표시되는 검증 가이드에서 `도움됐어요`를 눌러 누적 35P를 확인한다.
+6. 다시 시작하려면 `오늘 배송` 탭의 `데모 다시 보기`를 누른다.
 
 ### Railway 배포
 

@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import staticFiles from "@fastify/static";
 import Fastify from "fastify";
 import { z, ZodError } from "zod";
 
@@ -68,6 +69,7 @@ export function buildServer(
   options: {
     readiness?: () => Promise<unknown>;
     corsOrigins?: string[];
+    clientDistPath?: string;
   } = {},
 ) {
   const server = Fastify({
@@ -81,6 +83,24 @@ export function buildServer(
       callback(null, origin !== undefined && corsOrigins.has(origin));
     },
   });
+
+  if (options.clientDistPath) {
+    void server.register(staticFiles, {
+      root: options.clientDistPath,
+      prefix: "/",
+    });
+    server.setNotFoundHandler((request, reply) => {
+      if (
+        request.method === "GET" &&
+        !request.url.startsWith("/v1/") &&
+        request.url !== "/health" &&
+        request.url !== "/ready"
+      ) {
+        return reply.sendFile("index.html");
+      }
+      return reply.code(404).send({ error: "요청한 API를 찾을 수 없습니다." });
+    });
+  }
 
   server.get("/health", async () => ({ status: "ok" }));
 

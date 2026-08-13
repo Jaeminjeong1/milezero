@@ -1,21 +1,16 @@
-import { createGeminiGatewayFromEnv } from "@/gemini/gateway";
-import { BackendPipeline } from "@/pipeline/pipeline";
-import { createSupabaseKnowledgeStoreFromEnv } from "@/storage/supabase-store";
-
-import { parseCorsOrigins, parseRuntimeConfig } from "./runtime";
+import { createDependencies } from "./dependencies";
+import {
+  parseCorsOrigins,
+  parseRuntimeConfig,
+  resolveClientDistPath,
+} from "./runtime";
 import { buildServer } from "./server";
 
-const gateway = createGeminiGatewayFromEnv();
-const store = createSupabaseKnowledgeStoreFromEnv();
-const pipeline = new BackendPipeline({
-  store,
-  generateQuestion: gateway.generateQuestion,
-  generateKnowledge: gateway.generateKnowledge.bind(gateway),
-  matchClaim: gateway.matchClaim,
-});
-const server = buildServer(pipeline, {
-  readiness: () => store.getPointBalance("readiness-probe"),
+const dependencies = createDependencies(process.env);
+const server = buildServer(dependencies.pipeline, {
+  readiness: dependencies.readiness,
   corsOrigins: parseCorsOrigins(process.env),
+  clientDistPath: resolveClientDistPath(process.cwd()),
 });
 const runtime = parseRuntimeConfig(process.env);
 

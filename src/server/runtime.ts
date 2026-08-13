@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 const PortSchema = z.coerce.number().int().min(1).max(65_535);
 
@@ -36,4 +38,12 @@ export function parseCorsOrigins(env: { CORS_ORIGINS?: string }): string[] {
       "CORS_ORIGINS는 경로가 없는 http(s) origin을 쉼표로 구분해야 합니다.",
     );
   }
+}
+
+export function resolveClientDistPath(
+  workingDirectory: string,
+  exists: (path: string) => boolean = existsSync,
+): string | undefined {
+  const clientDistPath = resolve(workingDirectory, "dist/client");
+  return exists(clientDistPath) ? clientDistPath : undefined;
 }

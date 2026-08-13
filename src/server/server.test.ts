@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { BackendPipeline } from "@/pipeline/pipeline";
 import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
@@ -34,9 +37,15 @@ function createTestServer() {
 }
 
 const servers: Array<ReturnType<typeof buildServer>> = [];
+const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
+  await Promise.all(
+    temporaryDirectories.splice(0).map((directory) =>
+      rm(directory, { recursive: true, force: true }),
+    ),
+  );
 });
 
 describe("백엔드 HTTP API", () => {
@@ -292,5 +301,31 @@ describe("백엔드 HTTP API", () => {
       "https://judge.milezero.example",
     );
     expect(denied.headers).not.toHaveProperty("access-control-allow-origin");
+  });
+
+  it("같은 서버에서 클라이언트 홈과 정적 자산을 제공한다", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "milezero-client-"));
+    temporaryDirectories.push(directory);
+    await writeFile(join(directory, "index.html"), "<main>MileZero Web App</main>");
+    await writeFile(join(directory, "app.js"), "console.log('milezero')");
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => null,
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline, { clientDistPath: directory });
+    servers.push(server);
+
+    const home = await server.inject({ method: "GET", url: "/" });
+    const asset = await server.inject({ method: "GET", url: "/app.js" });
+    const missingApi = await server.inject({ method: "GET", url: "/v1/missing" });
+
+    expect(home.statusCode).toBe(200);
+    expect(home.body).toContain("MileZero Web App");
+    expect(asset.body).toContain("milezero");
+    expect(missingApi.statusCode).toBe(404);
+    expect(missingApi.headers["content-type"]).toContain("application/json");
   });
 });

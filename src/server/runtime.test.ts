@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCorsOrigins, parseRuntimeConfig } from "./runtime";
+import {
+  parseCorsOrigins,
+  parseRuntimeConfig,
+  resolveClientDistPath,
+} from "./runtime";
 
 describe("백엔드 실행 설정", () => {
   it("Railway PORT와 호스트를 읽는다", () => {
@@ -27,5 +31,10 @@ describe("백엔드 실행 설정", () => {
     expect(() =>
       parseCorsOrigins({ CORS_ORIGINS: "https://milezero.example/path" }),
     ).toThrow(/CORS/);
+  });
+
+  it("클라이언트 빌드가 있을 때만 Fastify 정적 경로를 활성화한다", () => {
+    expect(resolveClientDistPath("/app", () => true)).toBe("/app/dist/client");
+    expect(resolveClientDistPath("/app", () => false)).toBeUndefined();
   });
 });
