@@ -75,6 +75,7 @@ export function buildServer(
   pipeline: BackendPipeline,
   options: {
     readiness?: () => Promise<unknown>;
+    resetSimulation?: () => Promise<void>;
     corsOrigins?: string[];
     clientDistPath?: string;
   } = {},
@@ -128,6 +129,17 @@ export function buildServer(
   server.post("/v1/friction/evaluate", async (request) => {
     const body = QuestionBodySchema.parse(request.body);
     return pipeline.evaluateFriction(body.features);
+  });
+
+  server.post("/v1/simulation/reset", async (_request, reply) => {
+    if (!options.resetSimulation) {
+      return reply.code(403).send({
+        code: "SIMULATION_RESET_DISABLED",
+        error: "운영 데이터는 초기화할 수 없습니다.",
+      });
+    }
+    await options.resetSimulation();
+    return { reset: true };
   });
 
   server.post("/v1/reports", async (request, reply) => {

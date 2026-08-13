@@ -28,10 +28,17 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
   private contributionReceipts = new Map<string, ContributionReceipt>();
 
   constructor(seed: InMemoryKnowledgeSeed = {}) {
+    this.reset(seed);
+  }
+
+  reset(seed: InMemoryKnowledgeSeed = {}) {
+    this.reportSequence = 0;
+    this.claimSequence = 0;
     this.reports = structuredClone(seed.reports ?? []);
     this.claims = structuredClone(seed.claims ?? []);
     this.evidence = structuredClone(seed.evidence ?? []);
     this.points = structuredClone(seed.points ?? []);
+    this.contributionReceipts.clear();
   }
 
   async getContributionReceipt(

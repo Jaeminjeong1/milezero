@@ -1,85 +1,83 @@
 import { createDemoGateway } from "@/demo/gateway";
+import { createDemoKnowledgeSeed } from "@/demo/seed";
 import { createGeminiGatewayFromEnv } from "@/gemini/gateway";
-import { BackendPipeline } from "@/pipeline/pipeline";
+import type { KnowledgeGenerator } from "@/knowledge/analyzer";
+import { BackendPipeline, type ClaimMatcher } from "@/pipeline/pipeline";
+import type { QuestionGenerator } from "@/questions/planner";
 import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
 import { createSupabaseKnowledgeStoreFromEnv } from "@/storage/supabase-store";
 
-export function createDependencies(env: NodeJS.ProcessEnv) {
-  if (env.MILEZERO_MODE === "demo") {
-    const createdAt = "2026-08-13T00:00:00.000Z";
-    const store = new InMemoryKnowledgeStore({
-      reports: [
-        {
-          id: "demo-guide-report",
-          placeId: "demo-office-tower",
-          driverId: "demo-knowledge-reporter",
-          sanitizedSummary: "1톤 차량은 후문 진입 후 B2 하역장을 이용합니다.",
-          removedPiiTypes: [],
-          createdAt,
-        },
-      ],
-      claims: [
-        {
-          id: "demo-guide-claim",
-          reportId: "demo-guide-report",
-          placeId: "demo-office-tower",
-          reporterId: "demo-knowledge-reporter",
-          type: "INTERNAL_ROUTE",
-          value: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
-          vehicleType: "1TON",
-          timeCondition: null,
-          status: "VERIFIED",
-          confidence: 0.65,
-          helpfulCount: 2,
-          notHelpfulCount: 0,
-          utilityScore: 0.7,
-          createdAt,
-        },
-      ],
-      evidence: [
-        {
-          claimId: "demo-guide-claim",
-          driverId: "demo-seed-verifier",
-          feedback: "CONFIRM",
-          source: "DRIVER_FEEDBACK",
-          createdAt,
-        },
-        {
-          claimId: "demo-guide-claim",
-          driverId: "demo-seed-helper-a",
-          feedback: "HELPFUL",
-          source: "DRIVER_FEEDBACK",
-          createdAt,
-        },
-        {
-          claimId: "demo-guide-claim",
-          driverId: "demo-seed-helper-b",
-          feedback: "HELPFUL",
-          source: "DRIVER_FEEDBACK",
-          createdAt,
-        },
-      ],
-    });
-    const gateway = createDemoGateway();
-    return {
-      mode: "demo" as const,
-      pipeline: new BackendPipeline({ store, ...gateway }),
-      readiness: () => store.getPointBalance("readiness-probe"),
-      inspect: () => store.snapshot(),
-    };
+type RuntimeMode = "demo" | "judge" | "production";
+
+type ModelGateway = {
+  generateQuestion: QuestionGenerator;
+  generateKnowledge: KnowledgeGenerator;
+  matchClaim: ClaimMatcher;
+};
+
+type DependencyFactories = {
+  createGeminiGateway?: (env: NodeJS.ProcessEnv) => ModelGateway;
+};
+
+export function createDependencies(
+  env: NodeJS.ProcessEnv,
+  factories: DependencyFactories = {},
+) {
+  const mode = parseRuntimeMode(env.MILEZERO_MODE);
+  if (mode === "demo") {
+    return createSeededDependencies("demo", createDemoGateway());
+  }
+  if (mode === "judge") {
+    const createGateway =
+      factories.createGeminiGateway ?? createGeminiGatewayFromEnv;
+    return createSeededDependencies("judge", createGateway(env));
   }
 
-  const gateway = createGeminiGatewayFromEnv(env);
+  const createGateway =
+    factories.createGeminiGateway ?? createGeminiGatewayFromEnv;
+  const gateway = createGateway(env);
   const store = createSupabaseKnowledgeStoreFromEnv(env);
   return {
     mode: "production" as const,
-    pipeline: new BackendPipeline({
-      store,
-      generateQuestion: gateway.generateQuestion,
-      generateKnowledge: gateway.generateKnowledge.bind(gateway),
-      matchClaim: gateway.matchClaim,
-    }),
+    pipeline: createPipeline(store, gateway),
     readiness: () => store.getPointBalance("readiness-probe"),
     inspect: undefined,
+    resetSimulation: undefined,
   };
+}
+
+function createSeededDependencies(
+  mode: "demo" | "judge",
+  gateway: ModelGateway,
+) {
+  const store = new InMemoryKnowledgeStore(createDemoKnowledgeSeed());
+  return {
+    mode,
+    pipeline: createPipeline(store, gateway),
+    readiness: () => store.getPointBalance("readiness-probe"),
+    inspect: () => store.snapshot(),
+    resetSimulation: async () => {
+      store.reset(createDemoKnowledgeSeed());
+    },
+  };
+}
+
+function createPipeline(
+  store: InMemoryKnowledgeStore | ReturnType<typeof createSupabaseKnowledgeStoreFromEnv>,
+  gateway: ModelGateway,
+) {
+  return new BackendPipeline({
+    store,
+    generateQuestion: gateway.generateQuestion,
+    generateKnowledge: gateway.generateKnowledge.bind(gateway),
+    matchClaim: gateway.matchClaim,
+  });
+}
+
+function parseRuntimeMode(value: string | undefined): RuntimeMode {
+  const mode = value ?? "production";
+  if (mode === "demo" || mode === "judge" || mode === "production") {
+    return mode;
+  }
+  throw new Error("MILEZERO_MODE는 demo, judge, production 중 하나여야 합니다.");
 }

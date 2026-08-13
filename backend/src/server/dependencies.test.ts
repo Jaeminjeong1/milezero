@@ -2,6 +2,31 @@ import { describe, expect, it } from "vitest";
 
 import { createDependencies } from "./dependencies";
 
+const fakeGeminiGateway = {
+  generateQuestion: async () => ({
+    shouldAsk: true,
+    category: "ACCESS" as const,
+    questions: [
+      {
+        id: "friction_type",
+        question: "배송지에 들어갈 때 불편한 점이 있었나요?",
+        choices: [
+          "출입구를 찾기 어려웠어요",
+          "진입 절차가 복잡했어요",
+          "내부 이동이 어려웠어요",
+          "불편하지 않았어요",
+        ],
+      },
+    ],
+  }),
+  generateKnowledge: async () => ({
+    sanitizedSummary: "후문을 이용합니다.",
+    removedPiiTypes: [],
+    claims: [],
+  }),
+  matchClaim: async () => ({ relation: "NEW" as const, targetClaimId: null }),
+};
+
 describe("서버 의존성 구성", () => {
   it("demo 모드는 Gemini·Supabase 키 없이 전체 파이프라인을 만든다", async () => {
     const dependencies = createDependencies({ MILEZERO_MODE: "demo" });
@@ -60,5 +85,35 @@ describe("서버 의존성 구성", () => {
 
   it("기본 production 모드는 Gemini와 Supabase 설정을 요구한다", () => {
     expect(() => createDependencies({})).toThrow(/GEMINI_API_KEY/);
+  });
+
+  it("judge 모드는 실제 Gemini 계약과 복원 가능한 초기 지식을 함께 사용한다", async () => {
+    const dependencies = createDependencies(
+      {
+        MILEZERO_MODE: "judge",
+        GEMINI_API_KEY: "test-key",
+        GEMINI_MODEL: "gemini-test",
+      },
+      { createGeminiGateway: () => fakeGeminiGateway },
+    );
+
+    expect(dependencies.mode).toBe("judge");
+    expect(dependencies.inspect?.().claims[0]?.id).toBe("demo-guide-claim");
+    await dependencies.pipeline.recordFeedback({
+      claimId: "demo-guide-claim",
+      driverId: "judge-driver",
+      feedback: "CONTRADICT",
+    });
+    expect(dependencies.inspect?.().evidence).toHaveLength(4);
+
+    await dependencies.resetSimulation?.();
+
+    expect(dependencies.inspect?.().evidence).toHaveLength(3);
+  });
+
+  it("알 수 없는 실행 모드를 거부한다", () => {
+    expect(() => createDependencies({ MILEZERO_MODE: "staging" })).toThrow(
+      /MILEZERO_MODE/,
+    );
   });
 });

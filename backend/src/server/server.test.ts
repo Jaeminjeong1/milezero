@@ -212,6 +212,52 @@ describe("백엔드 HTTP API", () => {
     });
   });
 
+  it("심사 모드에서는 시뮬레이션 초기화 함수를 실행한다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    let resetCount = 0;
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => ({
+        sanitizedSummary: "",
+        removedPiiTypes: [],
+        claims: [],
+      }),
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline, {
+      resetSimulation: async () => {
+        resetCount += 1;
+      },
+    });
+    servers.push(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/simulation/reset",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ reset: true });
+    expect(resetCount).toBe(1);
+  });
+
+  it("운영 모드에서는 시뮬레이션 초기화를 거부한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/simulation/reset",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      code: "SIMULATION_RESET_DISABLED",
+      error: "운영 데이터는 초기화할 수 없습니다.",
+    });
+  });
+
   it("직선 변위가 누적 이동보다 큰 모순된 GPS 집계를 거부한다", async () => {
     const { server } = createTestServer();
     servers.push(server);

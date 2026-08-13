@@ -9,6 +9,7 @@ import { buildServer } from "./server";
 const dependencies = createDependencies(process.env);
 const server = buildServer(dependencies.pipeline, {
   readiness: dependencies.readiness,
+  resetSimulation: dependencies.resetSimulation,
   corsOrigins: parseCorsOrigins(process.env),
   clientDistPath: resolveClientDistPath({
     configuredPath: process.env.CLIENT_DIST_DIR,
