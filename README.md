@@ -34,6 +34,7 @@ Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pi
 - `GET /v1/knowledge`: 검증된 가이드와 별도의 후보 확인 요청 조회
 - `POST /v1/feedback`: `CONFIRM`, `CONTRADICT`, `HELPFUL` 피드백 반영
 - `GET /health`: 배포 상태 확인
+- `GET /ready`: Supabase RPC 연결을 포함한 요청 처리 준비 상태 확인
 
 데모 단계에서는 기사 가명 ID를 `x-driver-id` 헤더로 전달한다. 외부 파일럿 전에는 이 헤더를 신뢰하지 않고 인증 토큰의 사용자 ID로 서버에서 교체해야 한다.
 
@@ -51,7 +52,10 @@ Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pi
 pnpm test
 pnpm typecheck
 pnpm build
+pnpm qa:demo
 ```
+
+`qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·Supabase 구성과는 분리된 QA fixture다.
 
 ### Railway 배포
 

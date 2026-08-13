@@ -13,7 +13,9 @@ const pipeline = new BackendPipeline({
   generateKnowledge: gateway.generateKnowledge.bind(gateway),
   matchClaim: gateway.matchClaim,
 });
-const server = buildServer(pipeline);
+const server = buildServer(pipeline, {
+  readiness: () => store.getPointBalance("readiness-probe"),
+});
 const runtime = parseRuntimeConfig(process.env);
 
 await server.listen(runtime);

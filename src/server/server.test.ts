@@ -224,4 +224,43 @@ describe("백엔드 HTTP API", () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  it("의존 저장소가 준비되면 readiness를 200으로 응답한다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => null,
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline, {
+      readiness: async () => store.getPointBalance("readiness-probe"),
+    });
+    servers.push(server);
+
+    const response = await server.inject({ method: "GET", url: "/ready" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: "ready" });
+  });
+
+  it("의존 저장소 점검 실패 시 readiness를 503으로 응답한다", async () => {
+    const pipeline = new BackendPipeline({
+      store: new InMemoryKnowledgeStore(),
+      generateQuestion: async () => null,
+      generateKnowledge: async () => null,
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline, {
+      readiness: async () => {
+        throw new Error("database unavailable");
+      },
+    });
+    servers.push(server);
+
+    const response = await server.inject({ method: "GET", url: "/ready" });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ status: "not_ready" });
+  });
 });

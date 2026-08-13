@@ -62,13 +62,25 @@ const FeedbackBodySchema = z
 
 class UnauthorizedError extends Error {}
 
-export function buildServer(pipeline: BackendPipeline) {
+export function buildServer(
+  pipeline: BackendPipeline,
+  options: { readiness?: () => Promise<unknown> } = {},
+) {
   const server = Fastify({
     logger: false,
     bodyLimit: 12 * 1024 * 1024,
   });
 
   server.get("/health", async () => ({ status: "ok" }));
+
+  server.get("/ready", async (_request, reply) => {
+    try {
+      await options.readiness?.();
+      return { status: "ready" };
+    } catch {
+      return reply.code(503).send({ status: "not_ready" });
+    }
+  });
 
   server.post("/v1/questions", async (request) => {
     const body = QuestionBodySchema.parse(request.body);
