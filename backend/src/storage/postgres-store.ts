@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { Pool } from "pg";
 import { z } from "zod";
 
 import {
@@ -21,13 +21,30 @@ import type {
   StoredReport,
 } from "./contracts";
 
-type RpcError = { message: string };
-type RpcClient = {
-  rpc(
-    name: string,
-    args?: Record<string, unknown>,
-  ): Promise<{ data: unknown; error: RpcError | null }>;
+type QueryClient = {
+  query(
+    text: string,
+    values?: unknown[],
+  ): Promise<{ rows: Array<{ data: unknown }> }>;
 };
+
+const RpcSql = {
+  mz_get_contribution_receipt:
+    "select public.mz_get_contribution_receipt($1::jsonb) as data",
+  mz_commit_contribution:
+    "select public.mz_commit_contribution($1::jsonb) as data",
+  mz_create_report: "select public.mz_create_report($1::jsonb) as data",
+  mz_create_claim: "select public.mz_create_claim($1::jsonb) as data",
+  mz_find_claims: "select public.mz_find_claims($1::jsonb) as data",
+  mz_get_claim: "select public.mz_get_claim($1::jsonb) as data",
+  mz_update_claim: "select public.mz_update_claim($1::jsonb) as data",
+  mz_add_evidence: "select public.mz_add_evidence($1::jsonb) as data",
+  mz_list_evidence: "select public.mz_list_evidence($1::jsonb) as data",
+  mz_award_points: "select public.mz_award_points($1::jsonb) as data",
+  mz_point_balance: "select public.mz_point_balance($1::jsonb) as data",
+} as const;
+
+type RpcName = keyof typeof RpcSql;
 
 const ReportRowSchema = z.object({
   id: z.string(),
@@ -70,18 +87,16 @@ const ContributionReceiptSchema = z.object({
   awardedPoints: z.literal(10),
 });
 
-export class SupabaseKnowledgeStore implements KnowledgeStore {
-  constructor(private readonly client: RpcClient) {}
+export class PostgresKnowledgeStore implements KnowledgeStore {
+  constructor(private readonly client: QueryClient) {}
 
   async getContributionReceipt(
     idempotencyKey: string,
     driverId: string,
   ): Promise<ContributionReceipt | null> {
     const data = await this.call("mz_get_contribution_receipt", {
-      payload: {
-        idempotency_key: idempotencyKey,
-        driver_id: driverId,
-      },
+      idempotency_key: idempotencyKey,
+      driver_id: driverId,
     });
     return data === null ? null : ContributionReceiptSchema.parse(data);
   }
@@ -91,30 +106,28 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
   ): Promise<ContributionReceipt> {
     return ContributionReceiptSchema.parse(
       await this.call("mz_commit_contribution", {
-        payload: {
-          idempotency_key: input.idempotencyKey,
-          place_id: input.placeId,
-          driver_id: input.driverId,
-          sanitized_summary: input.sanitizedSummary,
-          removed_pii_types: input.removedPiiTypes,
-          operations: input.operations.map((operation) =>
-            operation.kind === "NEW"
-              ? {
-                  kind: operation.kind,
-                  claim: {
-                    claim_type: operation.claim.type,
-                    value: operation.claim.value,
-                    vehicle_type: operation.claim.vehicleType,
-                    time_condition: operation.claim.timeCondition,
-                  },
-                }
-              : {
-                  kind: operation.kind,
-                  claim_id: operation.claimId,
-                  feedback: operation.feedback,
+        idempotency_key: input.idempotencyKey,
+        place_id: input.placeId,
+        driver_id: input.driverId,
+        sanitized_summary: input.sanitizedSummary,
+        removed_pii_types: input.removedPiiTypes,
+        operations: input.operations.map((operation) =>
+          operation.kind === "NEW"
+            ? {
+                kind: operation.kind,
+                claim: {
+                  claim_type: operation.claim.type,
+                  value: operation.claim.value,
+                  vehicle_type: operation.claim.vehicleType,
+                  time_condition: operation.claim.timeCondition,
                 },
-          ),
-        },
+              }
+            : {
+                kind: operation.kind,
+                claim_id: operation.claimId,
+                feedback: operation.feedback,
+              },
+        ),
       }),
     );
   }
@@ -124,12 +137,10 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
   ): Promise<StoredReport> {
     const row = ReportRowSchema.parse(
       await this.call("mz_create_report", {
-        payload: {
-          place_id: report.placeId,
-          driver_id: report.driverId,
-          sanitized_summary: report.sanitizedSummary,
-          removed_pii_types: report.removedPiiTypes,
-        },
+        place_id: report.placeId,
+        driver_id: report.driverId,
+        sanitized_summary: report.sanitizedSummary,
+        removed_pii_types: report.removedPiiTypes,
       }),
     );
     return {
@@ -157,15 +168,13 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
     return mapClaimRow(
       ClaimRowSchema.parse(
         await this.call("mz_create_claim", {
-          payload: {
-            report_id: claim.reportId,
-            place_id: claim.placeId,
-            reporter_id: claim.reporterId,
-            claim_type: claim.type,
-            value: claim.value,
-            vehicle_type: claim.vehicleType,
-            time_condition: claim.timeCondition,
-          },
+          report_id: claim.reportId,
+          place_id: claim.placeId,
+          reporter_id: claim.reporterId,
+          claim_type: claim.type,
+          value: claim.value,
+          vehicle_type: claim.vehicleType,
+          time_condition: claim.timeCondition,
         }),
       ),
     );
@@ -179,21 +188,17 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
   }): Promise<StoredClaim[]> {
     const rows = z.array(ClaimRowSchema).parse(
       await this.call("mz_find_claims", {
-        payload: {
-          place_id: input.placeId,
-          claim_type: input.type ?? null,
-          vehicle_type: input.vehicleType ?? null,
-          statuses: input.statuses ?? null,
-        },
+        place_id: input.placeId,
+        claim_type: input.type ?? null,
+        vehicle_type: input.vehicleType ?? null,
+        statuses: input.statuses ?? null,
       }),
     );
     return rows.map(mapClaimRow);
   }
 
   async getClaim(claimId: string): Promise<StoredClaim | null> {
-    const data = await this.call("mz_get_claim", {
-      payload: { claim_id: claimId },
-    });
+    const data = await this.call("mz_get_claim", { claim_id: claimId });
     return data === null ? null : mapClaimRow(ClaimRowSchema.parse(data));
   }
 
@@ -211,14 +216,12 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
     return mapClaimRow(
       ClaimRowSchema.parse(
         await this.call("mz_update_claim", {
-          payload: {
-            claim_id: claimId,
-            status: update.status,
-            confidence: update.confidence,
-            helpful_count: update.helpfulCount,
-            not_helpful_count: update.notHelpfulCount,
-            utility_score: update.utilityScore,
-          },
+          claim_id: claimId,
+          status: update.status,
+          confidence: update.confidence,
+          helpful_count: update.helpfulCount,
+          not_helpful_count: update.notHelpfulCount,
+          utility_score: update.utilityScore,
         }),
       ),
     );
@@ -232,21 +235,17 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
   }): Promise<boolean> {
     return z.boolean().parse(
       await this.call("mz_add_evidence", {
-        payload: {
-          claim_id: input.claimId,
-          driver_id: input.driverId,
-          feedback: input.feedback,
-          source: input.source,
-        },
+        claim_id: input.claimId,
+        driver_id: input.driverId,
+        feedback: input.feedback,
+        source: input.source,
       }),
     );
   }
 
   async listEvidence(claimId: string): Promise<StoredEvidence[]> {
     const rows = z.array(EvidenceRowSchema).parse(
-      await this.call("mz_list_evidence", {
-        payload: { claim_id: claimId },
-      }),
+      await this.call("mz_list_evidence", { claim_id: claimId }),
     );
     return rows.map((row) => ({
       claimId: row.claim_id,
@@ -260,31 +259,25 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
   async awardPoints(entry: PointEntry): Promise<boolean> {
     return z.boolean().parse(
       await this.call("mz_award_points", {
-        payload: {
-          idempotency_key: entry.key,
-          driver_id: entry.driverId,
-          points: entry.points,
-          reason: entry.reason,
-        },
+        idempotency_key: entry.key,
+        driver_id: entry.driverId,
+        points: entry.points,
+        reason: entry.reason,
       }),
     );
   }
 
   async getPointBalance(driverId: string): Promise<number> {
     return z.coerce.number().parse(
-      await this.call("mz_point_balance", {
-        payload: { driver_id: driverId },
-      }),
+      await this.call("mz_point_balance", { driver_id: driverId }),
     );
   }
 
-  private async call(
-    name: string,
-    args: Record<string, unknown>,
-  ): Promise<unknown> {
-    const { data, error } = await this.client.rpc(name, args);
-    if (error) throw new Error(error.message);
-    return data;
+  private async call(name: RpcName, payload: Record<string, unknown>) {
+    const result = await this.client.query(RpcSql[name], [
+      JSON.stringify(payload),
+    ]);
+    return result.rows[0]?.data ?? null;
   }
 }
 
@@ -307,25 +300,10 @@ function mapClaimRow(row: z.infer<typeof ClaimRowSchema>): StoredClaim {
   };
 }
 
-export function createSupabaseKnowledgeStoreFromEnv(
+export function createPostgresKnowledgeStoreFromEnv(
   env: NodeJS.ProcessEnv = process.env,
-): SupabaseKnowledgeStore {
-  const url = env.SUPABASE_URL;
-  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url) throw new Error("SUPABASE_URL이 필요합니다.");
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY가 필요합니다.");
-  }
-  const client = createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return new SupabaseKnowledgeStore({
-    rpc: async (name, args) => {
-      const { data, error } = await client.rpc(name, args);
-      return {
-        data,
-        error: error ? { message: error.message } : null,
-      };
-    },
-  });
+): PostgresKnowledgeStore {
+  const connectionString = env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL이 필요합니다.");
+  return new PostgresKnowledgeStore(new Pool({ connectionString }));
 }

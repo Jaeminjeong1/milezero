@@ -5,7 +5,7 @@ import type { KnowledgeGenerator } from "@/knowledge/analyzer";
 import { BackendPipeline, type ClaimMatcher } from "@/pipeline/pipeline";
 import type { QuestionGenerator } from "@/questions/planner";
 import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
-import { createSupabaseKnowledgeStoreFromEnv } from "@/storage/supabase-store";
+import { createPostgresKnowledgeStoreFromEnv } from "@/storage/postgres-store";
 
 type RuntimeMode = "demo" | "judge" | "production";
 
@@ -36,7 +36,7 @@ export function createDependencies(
   const createGateway =
     factories.createGeminiGateway ?? createGeminiGatewayFromEnv;
   const gateway = createGateway(env);
-  const store = createSupabaseKnowledgeStoreFromEnv(env);
+  const store = createPostgresKnowledgeStoreFromEnv(env);
   return {
     mode: "production" as const,
     pipeline: createPipeline(store, gateway),
@@ -63,7 +63,7 @@ function createSeededDependencies(
 }
 
 function createPipeline(
-  store: InMemoryKnowledgeStore | ReturnType<typeof createSupabaseKnowledgeStoreFromEnv>,
+  store: InMemoryKnowledgeStore | ReturnType<typeof createPostgresKnowledgeStoreFromEnv>,
   gateway: ModelGateway,
 ) {
   return new BackendPipeline({

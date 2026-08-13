@@ -83,8 +83,21 @@ describe("서버 의존성 구성", () => {
     );
   });
 
-  it("기본 production 모드는 Gemini와 Supabase 설정을 요구한다", () => {
+  it("기본 production 모드는 Gemini와 PostgreSQL 설정을 요구한다", () => {
     expect(() => createDependencies({})).toThrow(/GEMINI_API_KEY/);
+  });
+
+  it("production 모드는 Railway PostgreSQL DATABASE_URL을 요구한다", () => {
+    expect(() =>
+      createDependencies(
+        {
+          MILEZERO_MODE: "production",
+          GEMINI_API_KEY: "test-key",
+          GEMINI_MODEL: "gemini-test",
+        },
+        { createGeminiGateway: () => fakeGeminiGateway },
+      ),
+    ).toThrow(/DATABASE_URL/);
   });
 
   it("judge 모드는 실제 Gemini 계약과 복원 가능한 초기 지식을 함께 사용한다", async () => {
