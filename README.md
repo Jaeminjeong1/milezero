@@ -23,6 +23,7 @@ pnpm dev
 - `GEMINI_MODEL`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `CORS_ORIGINS` — 프런트엔드 origin allowlist, 여러 개면 쉼표로 구분
 - `PORT` — 생략하면 `3000`
 
 Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.

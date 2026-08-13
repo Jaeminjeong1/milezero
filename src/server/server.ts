@@ -1,3 +1,4 @@
+import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { z, ZodError } from "zod";
 
@@ -64,11 +65,21 @@ class UnauthorizedError extends Error {}
 
 export function buildServer(
   pipeline: BackendPipeline,
-  options: { readiness?: () => Promise<unknown> } = {},
+  options: {
+    readiness?: () => Promise<unknown>;
+    corsOrigins?: string[];
+  } = {},
 ) {
   const server = Fastify({
     logger: false,
     bodyLimit: 12 * 1024 * 1024,
+  });
+
+  const corsOrigins = new Set(options.corsOrigins ?? []);
+  void server.register(cors, {
+    origin: (origin, callback) => {
+      callback(null, origin !== undefined && corsOrigins.has(origin));
+    },
   });
 
   server.get("/health", async () => ({ status: "ok" }));

@@ -2,7 +2,7 @@ import { createGeminiGatewayFromEnv } from "@/gemini/gateway";
 import { BackendPipeline } from "@/pipeline/pipeline";
 import { createSupabaseKnowledgeStoreFromEnv } from "@/storage/supabase-store";
 
-import { parseRuntimeConfig } from "./runtime";
+import { parseCorsOrigins, parseRuntimeConfig } from "./runtime";
 import { buildServer } from "./server";
 
 const gateway = createGeminiGatewayFromEnv();
@@ -15,6 +15,7 @@ const pipeline = new BackendPipeline({
 });
 const server = buildServer(pipeline, {
   readiness: () => store.getPointBalance("readiness-probe"),
+  corsOrigins: parseCorsOrigins(process.env),
 });
 const runtime = parseRuntimeConfig(process.env);
 

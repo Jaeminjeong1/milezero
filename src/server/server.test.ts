@@ -263,4 +263,34 @@ describe("백엔드 HTTP API", () => {
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ status: "not_ready" });
   });
+
+  it("설정된 프런트엔드 origin에만 CORS 응답 헤더를 제공한다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => null,
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline, {
+      corsOrigins: ["https://judge.milezero.example"],
+    });
+    servers.push(server);
+
+    const allowed = await server.inject({
+      method: "GET",
+      url: "/health",
+      headers: { origin: "https://judge.milezero.example" },
+    });
+    const denied = await server.inject({
+      method: "GET",
+      url: "/health",
+      headers: { origin: "https://attacker.example" },
+    });
+
+    expect(allowed.headers["access-control-allow-origin"]).toBe(
+      "https://judge.milezero.example",
+    );
+    expect(denied.headers).not.toHaveProperty("access-control-allow-origin");
+  });
 });
