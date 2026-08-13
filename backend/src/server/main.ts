@@ -10,7 +10,9 @@ const dependencies = createDependencies(process.env);
 const server = buildServer(dependencies.pipeline, {
   readiness: dependencies.readiness,
   corsOrigins: parseCorsOrigins(process.env),
-  clientDistPath: resolveClientDistPath(process.cwd()),
+  clientDistPath: resolveClientDistPath({
+    configuredPath: process.env.CLIENT_DIST_DIR,
+  }),
 });
 const runtime = parseRuntimeConfig(process.env);
 

@@ -33,8 +33,37 @@ describe("백엔드 실행 설정", () => {
     ).toThrow(/CORS/);
   });
 
-  it("클라이언트 빌드가 있을 때만 Fastify 정적 경로를 활성화한다", () => {
-    expect(resolveClientDistPath("/app", () => true)).toBe("/app/dist/client");
-    expect(resolveClientDistPath("/app", () => false)).toBeUndefined();
+  it("소스 모듈 위치를 기준으로 frontend 빌드를 찾는다", () => {
+    expect(
+      resolveClientDistPath({
+        moduleUrl: "file:///app/backend/src/server/runtime.ts",
+        exists: (path) => path === "/app/frontend/dist",
+      }),
+    ).toBe("/app/frontend/dist");
+    expect(
+      resolveClientDistPath({
+        moduleUrl: "file:///app/backend/src/server/runtime.ts",
+        exists: () => false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("번들 모듈 위치를 기준으로 frontend 빌드를 찾는다", () => {
+    expect(
+      resolveClientDistPath({
+        moduleUrl: "file:///app/backend/dist/main.js",
+        exists: (path) => path === "/app/frontend/dist",
+      }),
+    ).toBe("/app/frontend/dist");
+  });
+
+  it("CLIENT_DIST_DIR로 지정한 절대 경로를 우선한다", () => {
+    expect(
+      resolveClientDistPath({
+        moduleUrl: "file:///app/backend/dist/main.js",
+        configuredPath: "/srv/milezero/client",
+        exists: (path) => path === "/srv/milezero/client",
+      }),
+    ).toBe("/srv/milezero/client");
   });
 });

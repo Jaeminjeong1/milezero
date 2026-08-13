@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PortSchema = z.coerce.number().int().min(1).max(65_535);
 
@@ -41,9 +41,18 @@ export function parseCorsOrigins(env: { CORS_ORIGINS?: string }): string[] {
 }
 
 export function resolveClientDistPath(
-  workingDirectory: string,
-  exists: (path: string) => boolean = existsSync,
+  options: {
+    moduleUrl?: string;
+    configuredPath?: string;
+    exists?: (path: string) => boolean;
+  } = {},
 ): string | undefined {
-  const clientDistPath = resolve(workingDirectory, "dist/client");
-  return exists(clientDistPath) ? clientDistPath : undefined;
+  const moduleUrl = options.moduleUrl ?? import.meta.url;
+  const exists = options.exists ?? existsSync;
+  const candidates = [
+    options.configuredPath,
+    fileURLToPath(new URL("../../frontend/dist", moduleUrl)),
+    fileURLToPath(new URL("../../../frontend/dist", moduleUrl)),
+  ];
+  return candidates.find((path): path is string => Boolean(path && exists(path)));
 }
