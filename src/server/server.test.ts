@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { BackendPipeline } from "@/pipeline/pipeline";
 import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
+import { GeminiUnavailableError } from "@/gemini/gateway";
 
 import { buildServer } from "./server";
 
@@ -140,5 +141,67 @@ describe("백엔드 HTTP API", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("Gemini 분석 장애를 503으로 구분한다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => {
+        throw new GeminiUnavailableError("Gemini unavailable");
+      },
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline);
+    servers.push(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      headers: { "x-driver-id": "driver-a" },
+      payload: {
+        idempotencyKey: "server-gemini-error",
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: { text: "후문으로 진입합니다." },
+      },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      code: "DEPENDENCY_UNAVAILABLE",
+      error: "AI 분석 서비스를 잠시 사용할 수 없습니다.",
+    });
+  });
+
+  it("저장할 지식이 없는 응답은 422로 구분한다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => ({
+        sanitizedSummary: "불편하지 않았습니다.",
+        removedPiiTypes: [],
+        claims: [],
+      }),
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const server = buildServer(pipeline);
+    servers.push(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      headers: { "x-driver-id": "driver-a" },
+      payload: {
+        idempotencyKey: "server-no-knowledge",
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: { answerChoice: "불편하지 않았어요" },
+      },
+    });
+
+    expect(response.statusCode).toBe(422);
   });
 });

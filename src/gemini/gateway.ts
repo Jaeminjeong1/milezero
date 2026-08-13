@@ -34,19 +34,29 @@ type GenerateContent = (
 type GeminiGatewayOptions = {
   model: string;
   generateContent: GenerateContent;
+  timeoutMs?: number;
+  maxAttempts?: number;
 };
+
+export class GeminiUnavailableError extends Error {
+  override name = "GeminiUnavailableError";
+}
 
 export class GeminiGateway {
   private readonly model: string;
   private readonly generateContentRequest: GenerateContent;
+  private readonly timeoutMs: number;
+  private readonly maxAttempts: number;
 
   constructor(options: GeminiGatewayOptions) {
     this.model = options.model;
     this.generateContentRequest = options.generateContent;
+    this.timeoutMs = options.timeoutMs ?? 8_000;
+    this.maxAttempts = options.maxAttempts ?? 2;
   }
 
   generateQuestion = async (input: Parameters<QuestionGenerator>[0]) => {
-    const response = await this.generateContentRequest({
+    return this.generateStructured({
       model: this.model,
       contents: {
         role: "user",
@@ -63,9 +73,7 @@ export class GeminiGateway {
         responseMimeType: "application/json",
         responseJsonSchema: z.toJSONSchema(QuestionPlanSchema),
       },
-    });
-
-    return QuestionPlanSchema.parse(parseResponseJson(response));
+    }, QuestionPlanSchema);
   };
 
   async generateKnowledge(input: AnalysisModelInput) {
@@ -90,7 +98,7 @@ export class GeminiGateway {
       });
     }
 
-    const response = await this.generateContentRequest({
+    return this.generateStructured({
       model: this.model,
       contents: { role: "user", parts },
       config: {
@@ -100,9 +108,7 @@ export class GeminiGateway {
         responseMimeType: "application/json",
         responseJsonSchema: z.toJSONSchema(KnowledgeAnalysisSchema),
       },
-    });
-
-    return KnowledgeAnalysisSchema.parse(parseResponseJson(response));
+    }, KnowledgeAnalysisSchema);
   }
 
   matchClaim = async (
@@ -112,35 +118,87 @@ export class GeminiGateway {
     if (existing.length === 0) {
       return { relation: "NEW", targetClaimId: null };
     }
-    const response = await this.generateContentRequest({
-      model: this.model,
-      contents: {
-        role: "user",
-        parts: [
-          {
-            text: JSON.stringify({
-              candidate: publicClaim(candidate),
-              existing: existing.map((claim) => ({
-                id: claim.id,
-                ...publicClaim(claim),
-              })),
-            }),
-          },
-        ],
-      },
-      config: {
-        temperature: 0,
-        systemInstruction:
-          "후보 주장과 같은 장소의 기존 주장을 비교한다. 사실 여부를 판정하지 말고 의미 관계만 SUPPORTS, CONTRADICTS, NEW 중 하나로 분류한다. SUPPORTS 또는 CONTRADICTS이면 반드시 기존 targetClaimId를 반환한다.",
-        responseMimeType: "application/json",
-        responseJsonSchema: z.toJSONSchema(ClaimMatchSchema),
-      },
-    });
-
-    return ClaimMatchSchema.parse(
-      parseResponseJson(response),
-    ) as ClaimMatchResult;
+    try {
+      return await this.generateStructured({
+        model: this.model,
+        contents: {
+          role: "user",
+          parts: [
+            {
+              text: JSON.stringify({
+                candidate: publicClaim(candidate),
+                existing: existing.map((claim) => ({
+                  id: claim.id,
+                  ...publicClaim(claim),
+                })),
+              }),
+            },
+          ],
+        },
+        config: {
+          temperature: 0,
+          systemInstruction:
+            "후보 주장과 같은 장소의 기존 주장을 비교한다. 사실 여부를 판정하지 말고 의미 관계만 SUPPORTS, CONTRADICTS, NEW 중 하나로 분류한다. SUPPORTS 또는 CONTRADICTS이면 반드시 기존 targetClaimId를 반환한다.",
+          responseMimeType: "application/json",
+          responseJsonSchema: z.toJSONSchema(ClaimMatchSchema),
+        },
+      }, ClaimMatchSchema) as ClaimMatchResult;
+    } catch {
+      const normalizedCandidate = normalizeClaimText(candidate.value);
+      const exact = existing.find(
+        (claim) =>
+          claim.type === candidate.type &&
+          normalizeClaimText(claim.value) === normalizedCandidate,
+      );
+      return exact
+        ? { relation: "SUPPORTS", targetClaimId: exact.id }
+        : { relation: "NEW", targetClaimId: null };
+    }
   };
+
+  private async generateStructured<T>(
+    parameters: GenerateContentParameters,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+      try {
+        const response = await this.generateWithTimeout(parameters);
+        return schema.parse(parseResponseJson(response));
+      } catch (error) {
+        lastError = error;
+        if (attempt === this.maxAttempts || !isRetryableGeminiError(error)) {
+          break;
+        }
+      }
+    }
+    throw new GeminiUnavailableError(
+      lastError instanceof Error ? lastError.message : "Gemini unavailable",
+    );
+  }
+
+  private async generateWithTimeout(
+    parameters: GenerateContentParameters,
+  ): Promise<GenerateContentResponse> {
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        this.generateContentRequest({
+          ...parameters,
+          config: { ...parameters.config, abortSignal: controller.signal },
+        }),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => {
+            controller.abort();
+            reject(new GeminiUnavailableError("Gemini request timed out"));
+          }, this.timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
 }
 
 function publicClaim(claim: Claim | StoredClaim) {
@@ -155,6 +213,18 @@ function publicClaim(claim: Claim | StoredClaim) {
 function parseResponseJson(response: GenerateContentResponse): unknown {
   if (!response.text) throw new Error("Gemini가 구조화 응답을 반환하지 않았습니다.");
   return JSON.parse(response.text);
+}
+
+function normalizeClaimText(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function isRetryableGeminiError(error: unknown): boolean {
+  if (error instanceof SyntaxError || error instanceof z.ZodError) return true;
+  if (error instanceof GeminiUnavailableError) return true;
+  if (!(error instanceof Error)) return false;
+  const status = "status" in error ? Number(error.status) : undefined;
+  return status === 429 || (status !== undefined && status >= 500);
 }
 
 export function createGeminiGatewayFromEnv(

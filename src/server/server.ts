@@ -2,6 +2,12 @@ import Fastify from "fastify";
 import { z, ZodError } from "zod";
 
 import { ClaimSchema } from "@/domain/contracts";
+import {
+  ClaimNotFoundError,
+  IndependentVerificationError,
+  InvalidContributionError,
+} from "@/domain/errors";
+import { GeminiUnavailableError } from "@/gemini/gateway";
 import type { BackendPipeline } from "@/pipeline/pipeline";
 
 const DriverHeaderSchema = z.string().trim().min(1).max(100);
@@ -113,6 +119,27 @@ export function buildServer(pipeline: BackendPipeline) {
           path: issue.path.join("."),
           message: issue.message,
         })),
+      });
+    }
+    if (error instanceof InvalidContributionError) {
+      return reply.code(422).send({
+        code: "NO_ACTIONABLE_KNOWLEDGE",
+        error: error.message,
+      });
+    }
+    if (error instanceof ClaimNotFoundError) {
+      return reply.code(404).send({ code: "CLAIM_NOT_FOUND", error: error.message });
+    }
+    if (error instanceof IndependentVerificationError) {
+      return reply.code(409).send({
+        code: "INDEPENDENT_VERIFICATION_REQUIRED",
+        error: error.message,
+      });
+    }
+    if (error instanceof GeminiUnavailableError) {
+      return reply.code(503).send({
+        code: "DEPENDENCY_UNAVAILABLE",
+        error: "AI 분석 서비스를 잠시 사용할 수 없습니다.",
       });
     }
     return reply.code(500).send({ error: "요청을 처리하지 못했습니다." });

@@ -4,7 +4,7 @@ import type {
 } from "@google/genai";
 import { describe, expect, it } from "vitest";
 
-import { GeminiGateway } from "./gateway";
+import { GeminiGateway, GeminiUnavailableError } from "./gateway";
 
 function response(text: string): GenerateContentResponse {
   return { text } as GenerateContentResponse;
@@ -112,5 +112,81 @@ describe("Gemini 모델 게이트웨이", () => {
     );
 
     expect(result).toEqual({ relation: "SUPPORTS", targetClaimId: "claim-1" });
+  });
+
+  it("일시적인 모델 오류를 한 번 재시도한다", async () => {
+    let attempts = 0;
+    const gateway = new GeminiGateway({
+      model: "gemini-test",
+      maxAttempts: 2,
+      generateContent: async () => {
+        attempts += 1;
+        if (attempts === 1) throw Object.assign(new Error("rate limited"), { status: 429 });
+        return response(
+          JSON.stringify({
+            shouldAsk: true,
+            category: "PARKING",
+            question: "정차할 때 불편한 점이 있었나요?",
+            choices: ["정차 공간이 부족했어요", "불편하지 않았어요"],
+          }),
+        );
+      },
+    });
+
+    await gateway.generateQuestion({
+      context: "PARKING",
+      frictionTypes: ["REPEATED_STOPS"],
+      reasons: [],
+    });
+    expect(attempts).toBe(2);
+  });
+
+  it("모델 호출 제한 시간을 넘으면 의존성 오류로 종료한다", async () => {
+    const gateway = new GeminiGateway({
+      model: "gemini-test",
+      timeoutMs: 10,
+      maxAttempts: 1,
+      generateContent: async () => new Promise(() => undefined),
+    });
+
+    await expect(
+      gateway.generateKnowledge({ sanitizedText: "후문으로 진입합니다." }),
+    ).rejects.toBeInstanceOf(GeminiUnavailableError);
+  });
+
+  it("주장 매칭 모델이 실패하면 동일 문구를 결정론적으로 연결한다", async () => {
+    const gateway = new GeminiGateway({
+      model: "gemini-test",
+      maxAttempts: 1,
+      generateContent: async () => {
+        throw Object.assign(new Error("service unavailable"), { status: 503 });
+      },
+    });
+    const existing = {
+      id: "claim-1",
+      reportId: "report-1",
+      placeId: "place-1",
+      reporterId: "driver-a",
+      type: "ENTRANCE_RECOMMENDATION" as const,
+      value: "후문 진입",
+      vehicleType: "1TON" as const,
+      timeCondition: null,
+      status: "CANDIDATE" as const,
+      confidence: 0.35,
+      helpfulCount: 0,
+      createdAt: "2026-08-13T00:00:00.000Z",
+    };
+
+    await expect(
+      gateway.matchClaim(
+        {
+          type: existing.type,
+          value: " 후문   진입 ",
+          vehicleType: existing.vehicleType,
+          timeCondition: null,
+        },
+        [existing],
+      ),
+    ).resolves.toEqual({ relation: "SUPPORTS", targetClaimId: "claim-1" });
   });
 });

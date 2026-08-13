@@ -1,4 +1,9 @@
 import type { Claim } from "@/domain/contracts";
+import {
+  ClaimNotFoundError,
+  IndependentVerificationError,
+  InvalidContributionError,
+} from "@/domain/errors";
 import { detectFriction, summarizeGps } from "@/friction/detector";
 import type { GpsSample } from "@/friction/types";
 import type { FrictionFeatures } from "@/friction/types";
@@ -71,7 +76,7 @@ export class BackendPipeline {
       this.dependencies.generateKnowledge,
     );
     if (analysis.claims.length === 0) {
-      throw new Error("저장할 배송지 운영 지식이 없습니다.");
+      throw new InvalidContributionError("저장할 배송지 운영 지식이 없습니다.");
     }
     const operations: ContributionOperation[] = [];
     const evidenceClaimIds: string[] = [];
@@ -171,9 +176,11 @@ export class BackendPipeline {
     feedback: FeedbackType;
   }) {
     const claim = await this.dependencies.store.getClaim(input.claimId);
-    if (!claim) throw new Error("지식 후보를 찾을 수 없습니다.");
+    if (!claim) throw new ClaimNotFoundError("지식 후보를 찾을 수 없습니다.");
     if (claim.reporterId === input.driverId) {
-      throw new Error("제보와 검증은 독립 기사에 의해 수행되어야 합니다.");
+      throw new IndependentVerificationError(
+        "제보와 검증은 독립 기사에 의해 수행되어야 합니다.",
+      );
     }
 
     const accepted = await this.dependencies.store.addEvidence({
@@ -201,7 +208,7 @@ export class BackendPipeline {
 
   private async refreshClaim(claimId: string) {
     const claim = await this.dependencies.store.getClaim(claimId);
-    if (!claim) throw new Error("지식 후보를 찾을 수 없습니다.");
+    if (!claim) throw new ClaimNotFoundError("지식 후보를 찾을 수 없습니다.");
     const evaluated = evaluateClaim(
       claim.reporterId,
       await this.dependencies.store.listEvidence(claim.id),
