@@ -16,3 +16,13 @@ describe("반응형 타이포그래피", () => {
     expect(css).toMatch(/\.desktop-story\s*\{[^}]*min-width:\s*0/s);
   });
 });
+
+describe("GPS 심사 시뮬레이션 강조", () => {
+  it("JUDGE SIMULATION 헤더 전체를 빨간 배경과 흰색 전경으로 표시한다", async () => {
+    const css = await readFile(resolve("src/styles/global.css"), "utf8");
+
+    expect(css).toMatch(
+      /\.simulation-heading\s*\{[^}]*background:\s*var\(--color-error-fg\)[^}]*color:\s*var\(--color-neutral-0\)/s,
+    );
+  });
+});
