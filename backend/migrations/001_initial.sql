@@ -1,3 +1,4 @@
+-- MileZero initial schema for Railway PostgreSQL.
 create type claim_status as enum ('CANDIDATE', 'VERIFIED', 'CONFLICT');
 create type feedback_type as enum ('CONFIRM', 'CONTRADICT', 'HELPFUL', 'NOT_HELPFUL');
 create type evidence_source as enum ('REPORT', 'DRIVER_FEEDBACK');
@@ -64,16 +65,9 @@ create table points_ledger (
 );
 create index points_ledger_driver_idx on points_ledger(driver_id);
 
-alter table reports enable row level security;
-alter table claims enable row level security;
-alter table report_claims enable row level security;
-alter table claim_evidence enable row level security;
-alter table points_ledger enable row level security;
-
 create or replace function mz_create_report(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -100,7 +94,6 @@ $$;
 create or replace function mz_create_claim(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -131,7 +124,6 @@ create or replace function mz_find_claims(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at desc), '[]'::jsonb)
@@ -158,7 +150,6 @@ create or replace function mz_get_claim(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select to_jsonb(c)
@@ -169,7 +160,6 @@ $$;
 create or replace function mz_update_claim(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -194,7 +184,6 @@ $$;
 create or replace function mz_add_evidence(payload jsonb)
 returns boolean
 language plpgsql
-security definer
 set search_path = public
 as $$
 begin
@@ -216,7 +205,6 @@ create or replace function mz_list_evidence(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select coalesce(jsonb_agg(to_jsonb(e) order by e.created_at), '[]'::jsonb)
@@ -227,7 +215,6 @@ $$;
 create or replace function mz_award_points(payload jsonb)
 returns boolean
 language plpgsql
-security definer
 set search_path = public
 as $$
 begin
@@ -249,7 +236,6 @@ create or replace function mz_point_balance(payload jsonb)
 returns integer
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select coalesce(sum(points), 0)::integer
@@ -261,7 +247,6 @@ create or replace function mz_contribution_receipt(target_report_id uuid)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select jsonb_build_object(
@@ -287,7 +272,6 @@ create or replace function mz_get_contribution_receipt(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select mz_contribution_receipt(r.id)
@@ -299,7 +283,6 @@ $$;
 create or replace function mz_commit_contribution(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -390,30 +373,3 @@ begin
   return mz_contribution_receipt(inserted_report.id);
 end;
 $$;
-
-revoke all on reports, claims, report_claims, claim_evidence, points_ledger from anon, authenticated;
-revoke all on function mz_create_report(jsonb) from public, anon, authenticated;
-revoke all on function mz_create_claim(jsonb) from public, anon, authenticated;
-revoke all on function mz_find_claims(jsonb) from public, anon, authenticated;
-revoke all on function mz_get_claim(jsonb) from public, anon, authenticated;
-revoke all on function mz_update_claim(jsonb) from public, anon, authenticated;
-revoke all on function mz_add_evidence(jsonb) from public, anon, authenticated;
-revoke all on function mz_list_evidence(jsonb) from public, anon, authenticated;
-revoke all on function mz_award_points(jsonb) from public, anon, authenticated;
-revoke all on function mz_point_balance(jsonb) from public, anon, authenticated;
-revoke all on function mz_contribution_receipt(uuid) from public, anon, authenticated;
-revoke all on function mz_get_contribution_receipt(jsonb) from public, anon, authenticated;
-revoke all on function mz_commit_contribution(jsonb) from public, anon, authenticated;
-
-grant execute on function mz_create_report(jsonb) to service_role;
-grant execute on function mz_create_claim(jsonb) to service_role;
-grant execute on function mz_find_claims(jsonb) to service_role;
-grant execute on function mz_get_claim(jsonb) to service_role;
-grant execute on function mz_update_claim(jsonb) to service_role;
-grant execute on function mz_add_evidence(jsonb) to service_role;
-grant execute on function mz_list_evidence(jsonb) to service_role;
-grant execute on function mz_award_points(jsonb) to service_role;
-grant execute on function mz_point_balance(jsonb) to service_role;
-grant execute on function mz_contribution_receipt(uuid) to service_role;
-grant execute on function mz_get_contribution_receipt(jsonb) to service_role;
-grant execute on function mz_commit_contribution(jsonb) to service_role;

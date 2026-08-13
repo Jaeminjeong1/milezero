@@ -5,18 +5,12 @@ import { PGlite } from "@electric-sql/pglite";
 import { describe, expect, it } from "vitest";
 
 const migrationPath = fileURLToPath(
-  new URL(
-    "../../supabase/migrations/202608130001_milezero_pipeline.sql",
-    import.meta.url,
-  ),
+  new URL("../../migrations/001_initial.sql", import.meta.url),
 );
 
-describe("Supabase 영속 저장 스키마", () => {
+describe("Railway PostgreSQL 영속 저장 스키마", () => {
   it("비식별 report·claim을 저장하고 사실·유용성 중복을 각각 막는다", async () => {
     const database = new PGlite();
-    await database.exec(
-      "create role anon; create role authenticated; create role service_role;",
-    );
     await database.exec(await readFile(migrationPath, "utf8"));
 
     const reportResult = await database.query<{ data: Record<string, unknown> }>(
@@ -108,11 +102,8 @@ describe("Supabase 영속 저장 스키마", () => {
     await database.close();
   }, 30_000);
 
-  it("모든 지식 테이블에 RLS가 활성화된다", async () => {
+  it("별도 플랫폼 role이나 RLS 없이 애플리케이션 DB owner가 접근한다", async () => {
     const database = new PGlite();
-    await database.exec(
-      "create role anon; create role authenticated; create role service_role;",
-    );
     await database.exec(await readFile(migrationPath, "utf8"));
 
     const result = await database.query<{
@@ -125,18 +116,23 @@ describe("Supabase 영속 저장 스키마", () => {
     expect(result.rows).toEqual(
       expect.arrayContaining(
         ["reports", "claims", "claim_evidence", "points_ledger"].map(
-          (relname) => expect.objectContaining({ relname, relrowsecurity: true }),
+          (relname) => expect.objectContaining({ relname, relrowsecurity: false }),
         ),
       ),
     );
+    const functions = await database.query<{
+      proname: string;
+      prosecdef: boolean;
+    }>(
+      "select proname, prosecdef from pg_proc where pronamespace = 'public'::regnamespace and proname like 'mz_%'",
+    );
+    expect(functions.rows).not.toHaveLength(0);
+    expect(functions.rows.every((row) => row.prosecdef === false)).toBe(true);
     await database.close();
   }, 30_000);
 
   it("제보·후보 주장·기본 포인트를 한 트랜잭션으로 저장하고 재전송 결과를 재사용한다", async () => {
     const database = new PGlite();
-    await database.exec(
-      "create role anon; create role authenticated; create role service_role;",
-    );
     await database.exec(await readFile(migrationPath, "utf8"));
     const payload = JSON.stringify({
       idempotency_key: "submission-atomic",

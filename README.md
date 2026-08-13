@@ -30,7 +30,7 @@ corepack pnpm dev:demo
 ### 프로젝트 구조
 
 ```text
-backend/   # Fastify API, Gemini, 개인정보 제거, 검증·저장, Supabase migration
+backend/   # Fastify API, Gemini, 개인정보 제거, 검증·저장, PostgreSQL migration
 frontend/  # React/Vite 웹앱, 디자인 시스템, 브라우저 API client
 ```
 
@@ -44,13 +44,14 @@ corepack pnpm --filter @milezero/frontend dev
 모드별 서버 환경변수:
 
 - `judge`: `GEMINI_API_KEY`, `GEMINI_MODEL`
-- `production`: 위 Gemini 변수와 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- `production`: 위 Gemini 변수와 `DATABASE_URL` — Railway에서는 `${{Postgres.DATABASE_URL}}`
 - `CORS_ORIGINS` — 프런트엔드 origin allowlist, 여러 개면 쉼표로 구분
 - `MILEZERO_MODE` — 외부 키 없는 로컬 시연은 `demo`, 해커톤 배포는 `judge`, 실제 운영은 `production`
 - `CLIENT_DIST_DIR` — 선택 사항, 백엔드가 제공할 프런트 빌드의 절대 경로
+- `MIGRATIONS_DIR` — 선택 사항, 배포 컨테이너는 `/app/backend/migrations`를 기본 설정
 - `PORT` — 생략하면 `3000`
 
-해커톤 심사 배포에는 `judge` 모드를 권장한다. 이 모드는 실제 Gemini와 초기 지식이 들어 있는 메모리 저장소를 함께 사용하므로 Supabase 키가 필요 없고, `처음부터 다시`로 반복 시연할 수 있다. 실제 운영의 `production` 모드에서만 Supabase가 필요하며, 먼저 `backend/supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
+해커톤 심사 배포에는 `judge` 모드를 권장한다. 이 모드는 실제 Gemini와 초기 지식이 들어 있는 메모리 저장소를 함께 사용하므로 DB 없이 `처음부터 다시`로 반복 시연할 수 있다. 실제 운영의 `production` 모드에서는 PostgreSQL을 사용한다. 이때 Fastify를 시작하기 전에 `backend/migrations`의 미적용 SQL을 자동 실행하며, advisory lock과 ledger table로 중복 실행을 막는다. migration이 실패하면 서버를 시작하지 않는다. 공개 클라이언트는 DB에 직접 접근하지 않고 Fastify API만 호출한다.
 
 ### API
 
@@ -96,7 +97,7 @@ corepack pnpm build
 corepack pnpm qa:demo
 ```
 
-`qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 사실·도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·Supabase 구성과는 분리된 QA fixture다.
+`qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 사실·도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·PostgreSQL 구성과는 분리된 QA fixture다.
 
 ### 심사 시연 순서
 
@@ -110,7 +111,11 @@ corepack pnpm qa:demo
 
 ### Railway 배포
 
-루트 `Dockerfile`과 `railway.json`을 사용하며 React와 Fastify를 한 도메인에서 제공한다. 해커톤 심사용 Railway 서비스에는 다음 세 환경변수만 secret/config로 등록하면 된다.
+루트 `Dockerfile`과 `railway.json`을 사용하며 React와 Fastify를 한 도메인에서 제공한다.
+
+#### 해커톤 심사 배포
+
+반복 시연이 목적이면 PostgreSQL 서비스 없이 `judge` 모드를 사용한다. Railway Web 서비스에는 다음 세 환경변수만 등록하면 된다.
 
 ```text
 MILEZERO_MODE=judge
@@ -118,7 +123,23 @@ GEMINI_API_KEY=<Google AI Studio에서 발급한 서버 키>
 GEMINI_MODEL=gemini-3.6-flash
 ```
 
-`PORT`, `HOST`, `CLIENT_DIST_DIR`은 Docker/Railway가 설정한다. 별도 프런트 URL을 사용할 때만 `CORS_ORIGINS=https://프런트도메인`을 추가한다. `judge`의 데이터는 메모리 기반이므로 서버 재배포·재시작 시 초기 상태로 복원되는 것이 의도된 동작이다.
+`judge`에서는 DB migration을 건너뛴다. 데이터는 메모리 기반이므로 서버 재배포·재시작 시 초기 상태로 복원되는 것이 의도된 동작이다.
+
+#### PostgreSQL 운영 배포
+
+실제 영속 저장이 필요하면 한 Railway 프로젝트에 Web 서비스와 PostgreSQL 서비스를 만든다.
+
+Web 서비스 Variables에는 다음 값을 등록한다. `Postgres`는 Railway 화면의 실제 DB 서비스 이름과 정확히 같아야 한다.
+
+```env
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+GEMINI_API_KEY=발급받은_키
+GEMINI_MODEL=gemini-3.6-flash
+MILEZERO_MODE=production
+CORS_ORIGINS=https://${{RAILWAY_PUBLIC_DOMAIN}}
+```
+
+`PORT`와 `HOST`는 Railway/Docker가 설정하므로 직접 등록하지 않는다. `production` 컨테이너는 시작 시 schema migration을 먼저 실행하고 `/ready`에서 PostgreSQL 준비 상태를 확인한다. 첫 배포 후 Web 서비스의 Settings → Networking에서 `Generate Domain`을 누르면 된다. 별도 프런트 URL을 사용할 때만 해당 origin을 `CORS_ORIGINS`에 추가한다.
 
 ```bash
 railway up
