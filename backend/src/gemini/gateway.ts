@@ -69,7 +69,7 @@ export class GeminiGateway {
       config: {
         temperature: 0.2,
         systemInstruction:
-          "배송기사의 책임이나 실수를 묻지 않는다. 배송지·시설 때문에 생긴 억울함과 불편함을 편하게 말할 수 있는 한국어 질문을 만든다. 문제를 단정하지 않으며 선택지에는 반드시 '불편하지 않았어요'를 포함한다.",
+          "배송기사의 책임이나 실수를 묻지 않는다. 배송지·시설 때문에 생긴 억울함과 불편함을 편하게 말할 수 있는 한국어 질문을 만든다. 1개의 기본 질문과 필요한 경우 맥락별 후속 질문 1개까지만 만든다. 질문별 선택지는 4~5개이며 첫 질문 선택지에는 반드시 '불편하지 않았어요'를 포함한다.",
         responseMimeType: "application/json",
         responseJsonSchema: z.toJSONSchema(QuestionPlanSchema),
       },

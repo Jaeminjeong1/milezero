@@ -23,8 +23,18 @@ describe("Gemini 모델 게이트웨이", () => {
           JSON.stringify({
             shouldAsk: true,
             category: "PARKING",
-            question: "정차 장소를 찾을 때 불편한 점이 있었나요?",
-            choices: ["정차 공간이 부족했어요", "불편하지 않았어요"],
+            questions: [
+              {
+                id: "friction_type",
+                question: "정차 장소를 찾을 때 불편한 점이 있었나요?",
+                choices: [
+                  "정차 공간이 부족했어요",
+                  "하역 공간이 부족했어요",
+                  "출입구가 멀었어요",
+                  "불편하지 않았어요",
+                ],
+              },
+            ],
           }),
         );
       },
@@ -36,7 +46,7 @@ describe("Gemini 모델 게이트웨이", () => {
       reasons: ["정지와 이동이 반복됐습니다."],
     });
 
-    expect(result.question).toContain("불편한 점");
+    expect(result.questions[0]?.question).toContain("불편한 점");
   });
 
   it("텍스트와 사진을 하나의 멀티모달 분석 요청으로 보낸다", async () => {
@@ -126,8 +136,18 @@ describe("Gemini 모델 게이트웨이", () => {
           JSON.stringify({
             shouldAsk: true,
             category: "PARKING",
-            question: "정차할 때 불편한 점이 있었나요?",
-            choices: ["정차 공간이 부족했어요", "불편하지 않았어요"],
+            questions: [
+              {
+                id: "friction_type",
+                question: "정차할 때 불편한 점이 있었나요?",
+                choices: [
+                  "정차 공간이 부족했어요",
+                  "하역 공간이 부족했어요",
+                  "출입구가 멀었어요",
+                  "불편하지 않았어요",
+                ],
+              },
+            ],
           }),
         );
       },

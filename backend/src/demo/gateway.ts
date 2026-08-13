@@ -7,12 +7,27 @@ export function createDemoGateway() {
   const generateQuestion: QuestionGenerator = async ({ context }) => ({
     shouldAsk: true,
     category: context === "OTHER" ? "OTHER" : context,
-    question: "오늘 이 배송에서 불편한 점이 있었나요?",
-    choices: [
-      "출입구를 찾기 어려웠어요",
-      "정차할 곳을 찾기 어려웠어요",
-      "건물 안에서 이동이 어려웠어요",
-      "불편하지 않았어요",
+    questions: [
+      {
+        id: "friction_type",
+        question: "오늘 이 배송에서 불편한 점이 있었나요?",
+        choices: [
+          "출입구를 찾기 어려웠어요",
+          "정차할 곳을 찾기 어려웠어요",
+          "건물 안에서 이동이 어려웠어요",
+          "불편하지 않았어요",
+        ],
+      },
+      {
+        id: "actionable_detail",
+        question: "다음 기사에게 가장 먼저 알려주고 싶은 점은 무엇인가요?",
+        choices: [
+          "추천 출입구",
+          "추천 정차 위치",
+          "하역장 위치",
+          "건물 내부 이동 방법",
+        ],
+      },
     ],
   } satisfies QuestionPlan);
 
