@@ -4,18 +4,24 @@ import { ArrowClockwise, Bell } from "@phosphor-icons/react";
 import type { MileZeroApi } from "./types";
 import { AppShell } from "./components/AppShell";
 import { DeliveryCard } from "./components/DeliveryCard";
+import { ContributionSheet } from "./components/ContributionSheet";
+import { ErrorSheet } from "./components/ErrorSheet";
+import { ProcessingSheet } from "./components/ProcessingSheet";
+import { QuestionSheet } from "./components/QuestionSheet";
+import { RewardSheet } from "./components/RewardSheet";
 import { StatusCard } from "./components/StatusCard";
 import { TopTabs, type DeliveryTab } from "./components/TopTabs";
+import { useDemoJourney } from "./hooks/useDemoJourney";
 
 export function App({
-  api: _api,
-  autoDetectDelayMs: _autoDetectDelayMs = 1_100,
+  api,
+  autoDetectDelayMs = 1_100,
 }: {
   api: MileZeroApi;
   autoDetectDelayMs?: number;
 }) {
   const [tab, setTab] = useState<DeliveryTab>("today");
-  const [replayKey, setReplayKey] = useState(0);
+  const journey = useDemoJourney(api, { autoDetectDelayMs });
 
   return (
     <AppShell>
@@ -29,7 +35,7 @@ export function App({
           <Bell weight="bold" aria-hidden="true" />
         </button>
       </header>
-      <div className="app-content" key={replayKey}>
+      <div className="app-content">
         {tab === "today" ? (
           <>
             <section className="hero-copy">
@@ -37,7 +43,7 @@ export function App({
               <h2>마지막 구간은<br /><em>현장 경험</em>이 안내할게요.</h2>
             </section>
             <DeliveryCard />
-            <StatusCard onReplay={() => setReplayKey((key) => key + 1)} />
+            <StatusCard onReplay={journey.replay} />
           </>
         ) : (
           <section className="empty-next">
@@ -48,6 +54,19 @@ export function App({
           </section>
         )}
       </div>
+      {tab === "today" && journey.phase === "question" && journey.question ? (
+        <QuestionSheet question={journey.question} onSelect={journey.selectChoice} />
+      ) : null}
+      {tab === "today" && journey.phase === "contribution" && journey.selectedChoice ? (
+        <ContributionSheet choice={journey.selectedChoice} onSubmit={journey.submitContribution} />
+      ) : null}
+      {journey.phase === "submitting" ? <ProcessingSheet /> : null}
+      {journey.phase === "rewarded" && journey.receipt ? (
+        <RewardSheet points={journey.receipt.awardedPoints} onNext={() => setTab("next")} />
+      ) : null}
+      {journey.phase === "error" && journey.errorMessage ? (
+        <ErrorSheet message={journey.errorMessage} onRetry={() => void journey.retrySubmission()} />
+      ) : null}
     </AppShell>
   );
 }
