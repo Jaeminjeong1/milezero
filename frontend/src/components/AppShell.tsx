@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { LockKey, Sparkle } from "@phosphor-icons/react";
+import { LockKey } from "@phosphor-icons/react";
 
 export function AppShell({
   children,
@@ -8,7 +8,9 @@ export function AppShell({
   return (
     <div className="page-frame">
       <aside className="desktop-story" aria-label="MileZero 소개">
-        <div className="story-mark"><Sparkle weight="fill" aria-hidden="true" /></div>
+        <div className="story-mark">
+          <img src="/milezero-logo.png" alt="" aria-hidden="true" />
+        </div>
         <p className="eyebrow">LAST 50 FEET INTELLIGENCE</p>
         <h2>한 기사의 경험이<br />다음 배송의 지름길이 됩니다.</h2>
         <p>

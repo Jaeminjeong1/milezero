@@ -11,8 +11,8 @@ h1, h2, p { margin: 0; }
 
 .page-frame { min-height: 100vh; display: grid; grid-template-columns: minmax(320px, 460px) minmax(320px, 480px); align-items: center; justify-content: center; gap: 88px; padding: 48px; background: radial-gradient(circle at 10% 15%, rgb(52 120 246 / 11%), transparent 30%), radial-gradient(circle at 90% 85%, rgb(250 225 0 / 12%), transparent 30%), #edf2f9; }
 .desktop-story { min-width: 0; max-width: 460px; }
-.story-mark { width: 52px; height: 52px; display: grid; place-items: center; color: var(--text-primary); background: var(--color-primary-500); border-radius: 17px; box-shadow: var(--shadow-cta); margin-bottom: 24px; }
-.story-mark svg { width: 27px; height: 27px; }
+.story-mark { width: 52px; height: 52px; overflow: hidden; background: var(--color-primary-500); border-radius: 17px; box-shadow: var(--shadow-cta); margin-bottom: 24px; }
+.story-mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .eyebrow { color: var(--color-secondary-500); font-size: 11px; font-weight: 800; letter-spacing: .08em; line-height: 1.4; }
 .desktop-story > h2 { margin-top: 12px; font-size: clamp(31px, 3.4vw, 46px); font-weight: 900; line-height: 1.22; letter-spacing: -.045em; word-break: keep-all; }
 .desktop-story > p:not(.eyebrow) { margin-top: 20px; max-width: 430px; color: var(--text-secondary); font-size: 15px; font-weight: 600; line-height: 1.75; }
