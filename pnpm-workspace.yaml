@@ -1,3 +1,7 @@
+packages:
+  - backend
+  - frontend
+
 allowBuilds:
   '@google/genai': true
   esbuild: true

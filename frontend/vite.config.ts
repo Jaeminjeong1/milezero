@@ -8,7 +8,7 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-  build: { outDir: "dist/client", emptyOutDir: true },
+  build: { outDir: "dist", emptyOutDir: true },
   server: {
     port: 5173,
     proxy: {
