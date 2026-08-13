@@ -1,3 +1,4 @@
+-- MileZero initial schema for Railway PostgreSQL.
 create type claim_status as enum ('CANDIDATE', 'VERIFIED', 'CONFLICT');
 create type feedback_type as enum ('CONFIRM', 'CONTRADICT', 'HELPFUL', 'NOT_HELPFUL');
 create type evidence_source as enum ('REPORT', 'DRIVER_FEEDBACK');
@@ -63,12 +64,6 @@ create table points_ledger (
   created_at timestamptz not null default now()
 );
 create index points_ledger_driver_idx on points_ledger(driver_id);
-
-alter table reports enable row level security;
-alter table claims enable row level security;
-alter table report_claims enable row level security;
-alter table claim_evidence enable row level security;
-alter table points_ledger enable row level security;
 
 create or replace function mz_create_report(payload jsonb)
 returns jsonb
@@ -390,30 +385,3 @@ begin
   return mz_contribution_receipt(inserted_report.id);
 end;
 $$;
-
-revoke all on reports, claims, report_claims, claim_evidence, points_ledger from anon, authenticated;
-revoke all on function mz_create_report(jsonb) from public, anon, authenticated;
-revoke all on function mz_create_claim(jsonb) from public, anon, authenticated;
-revoke all on function mz_find_claims(jsonb) from public, anon, authenticated;
-revoke all on function mz_get_claim(jsonb) from public, anon, authenticated;
-revoke all on function mz_update_claim(jsonb) from public, anon, authenticated;
-revoke all on function mz_add_evidence(jsonb) from public, anon, authenticated;
-revoke all on function mz_list_evidence(jsonb) from public, anon, authenticated;
-revoke all on function mz_award_points(jsonb) from public, anon, authenticated;
-revoke all on function mz_point_balance(jsonb) from public, anon, authenticated;
-revoke all on function mz_contribution_receipt(uuid) from public, anon, authenticated;
-revoke all on function mz_get_contribution_receipt(jsonb) from public, anon, authenticated;
-revoke all on function mz_commit_contribution(jsonb) from public, anon, authenticated;
-
-grant execute on function mz_create_report(jsonb) to service_role;
-grant execute on function mz_create_claim(jsonb) to service_role;
-grant execute on function mz_find_claims(jsonb) to service_role;
-grant execute on function mz_get_claim(jsonb) to service_role;
-grant execute on function mz_update_claim(jsonb) to service_role;
-grant execute on function mz_add_evidence(jsonb) to service_role;
-grant execute on function mz_list_evidence(jsonb) to service_role;
-grant execute on function mz_award_points(jsonb) to service_role;
-grant execute on function mz_point_balance(jsonb) to service_role;
-grant execute on function mz_contribution_receipt(uuid) to service_role;
-grant execute on function mz_get_contribution_receipt(jsonb) to service_role;
-grant execute on function mz_commit_contribution(jsonb) to service_role;
