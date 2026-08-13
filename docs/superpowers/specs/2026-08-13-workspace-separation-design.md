@@ -68,13 +68,11 @@ milezero/
 전역 `pnpm` 설치를 전제로 하지 않는다. 문서의 표준 명령은 Node.js 22에 포함된 Corepack을 사용한다.
 
 ```bash
-corepack enable
-corepack prepare pnpm@11.19.0 --activate
 corepack pnpm install
 corepack pnpm dev:demo
 ```
 
-`corepack enable` 권한이 없는 환경에서도 `corepack pnpm ...`은 직접 실행할 수 있다. 루트 명령은 workspace filter를 통해 두 패키지 명령을 호출한다. 앱 하나만 작업할 때는 다음처럼 실행한다.
+이 기본 절차는 시스템 실행 경로 쓰기 권한을 요구하지 않는다. bare `pnpm` 명령이 필요한 경우에만 권한이 있는 환경에서 `corepack enable`과 `corepack prepare pnpm@11.19.0 --activate`를 선택적으로 실행한다. 루트 명령은 workspace filter를 통해 두 패키지 명령을 호출한다. 앱 하나만 작업할 때는 다음처럼 실행한다.
 
 ```bash
 corepack pnpm --filter @milezero/backend dev:demo

@@ -55,12 +55,12 @@
 
 ## 기술 구조
 
-- `src/client`에 React 19 + Vite 앱을 둔다.
+- `frontend/src`에 React 19 + Vite 앱을 둔다.
 - `api.ts`는 질문, 제보, 지식 조회, 피드백 API를 타입 안전 함수로 캡슐화한다.
 - `useDemoJourney`는 화면 상태와 서로 다른 합성 기사 ID를 관리한다.
 - UI는 토큰, 공통 primitives, 홈/질문/제보/가이드 기능 컴포넌트로 나눈다.
 - Vite 개발 서버는 `/v1`, `/health`, `/ready`를 Fastify로 프록시한다.
-- 프로덕션 빌드는 `dist/client`에 생성하고 Fastify가 SPA fallback과 정적 자산을 제공한다.
+- 프로덕션 빌드는 `frontend/dist`에 생성하고 `backend`의 Fastify가 SPA fallback과 정적 자산을 제공한다.
 - `MILEZERO_MODE=demo`에서는 인메모리 저장소와 결정적 합성 AI 어댑터로 같은 HTTP API를 실행한다. 기본 모드는 계속 Gemini와 Supabase를 사용한다.
 
 ## 오류와 안전 처리

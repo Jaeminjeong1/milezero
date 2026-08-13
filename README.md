@@ -1,31 +1,47 @@
 # milezero
 물류 AI 해커톤 MoveAI 카카오모빌리티 부문
 
-## 백엔드 우선 구현
+## 현재 구현
 
-현재 브랜치의 구현 범위는 프런트엔드를 제외한 다음 파이프라인이다.
+현재 구현은 다음 파이프라인과 심사용 웹앱을 하나의 저장소에서 제공한다.
 
 `GPS 집계 특징 → 배송 마찰 탐지 → 중립 질문 → 텍스트·음성·사진 분석 → 개인정보 제거 → 후보 지식 검증·저장 → 다음 기사 안내 → 사실·도움 피드백`
 
 ### 실행
 
-Node.js 22와 pnpm을 사용한다.
+Node.js 22와 pnpm 11.19를 사용한다. 전역 `pnpm` 설치는 필요하지 않으며 Node.js의 Corepack으로 고정 버전을 실행한다.
 
 ```bash
-pnpm install
+corepack pnpm install
 cp .env.example .env
-pnpm dev
+corepack pnpm dev
 ```
+
+이 방식은 `/usr/local/bin` 쓰기 권한이 없어도 동작한다. bare `pnpm` 명령도 사용하고 싶고 해당 경로에 쓰기 권한이 있는 경우에만 `corepack enable && corepack prepare pnpm@11.19.0 --activate`를 추가로 실행한다. `corepack` 자체가 없다면 Node.js 22를 설치하거나 `npm install --global corepack@0.31.0`으로 먼저 설치한다.
 
 프런트와 API를 외부 키 없이 로컬에서 함께 시연하려면 다음 명령을 사용한다. 이 모드는 화면에 표시된 합성 시나리오만 사용한다.
 
 ```bash
-pnpm dev:demo
+corepack pnpm dev:demo
 ```
 
 - 웹앱: `http://localhost:5173`
 - API: `http://localhost:3000`
 - Vite가 `/v1`, `/health`, `/ready`를 API로 프록시한다.
+
+### 프로젝트 구조
+
+```text
+backend/   # Fastify API, Gemini, 개인정보 제거, 검증·저장, Supabase migration
+frontend/  # React/Vite 웹앱, 디자인 시스템, 브라우저 API client
+```
+
+각 패키지만 실행하려면 workspace filter를 사용한다.
+
+```bash
+corepack pnpm --filter @milezero/backend dev:demo
+corepack pnpm --filter @milezero/frontend dev
+```
 
 필수 서버 환경변수:
 
@@ -35,9 +51,10 @@ pnpm dev:demo
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CORS_ORIGINS` — 프런트엔드 origin allowlist, 여러 개면 쉼표로 구분
 - `MILEZERO_MODE` — 운영은 `production`, 외부 키 없는 합성 시연은 `demo`
+- `CLIENT_DIST_DIR` — 선택 사항, 백엔드가 제공할 프런트 빌드의 절대 경로
 - `PORT` — 생략하면 `3000`
 
-Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
+Supabase 프로젝트에는 먼저 `backend/supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
 
 ### API
 
@@ -63,10 +80,10 @@ Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pi
 ### 검증
 
 ```bash
-pnpm test
-pnpm typecheck
-pnpm build
-pnpm qa:demo
+corepack pnpm test
+corepack pnpm typecheck
+corepack pnpm build
+corepack pnpm qa:demo
 ```
 
 `qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·Supabase 구성과는 분리된 QA fixture다.
@@ -82,7 +99,7 @@ pnpm qa:demo
 
 ### Railway 배포
 
-루트 `Dockerfile`과 `railway.json`을 사용한다. Railway 서비스에 네 가지 필수 환경변수를 secret으로 등록한 뒤 배포한다.
+루트 `Dockerfile`과 `railway.json`을 사용한다. Railway 서비스에 운영 필수 환경변수를 secret으로 등록한 뒤 배포한다.
 
 ```bash
 railway up
