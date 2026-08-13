@@ -42,9 +42,9 @@ function createApi(): MileZeroApi {
         {
           claimId: "demo-guide-claim",
           text: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
-          type: "INTERNAL_ROUTE",
-          vehicleType: "1TON",
-          timeCondition: null,
+          type: "ENTRANCE_RECOMMENDATION",
+          vehicleType: "VAN",
+          timeCondition: "평일 09:00~18:00",
           confidence: 0.65,
           reportedAt: "2026-08-13T00:00:00.000Z",
         },
@@ -143,6 +143,11 @@ describe("MileZero 역할별 홈", () => {
         "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
       ),
     ).toBeVisible();
+    expect(screen.getByText("추천 진입 경로")).toBeVisible();
+    expect(screen.getByText("승합차")).toBeVisible();
+    expect(screen.getByText("평일 09:00~18:00")).toBeVisible();
+    expect(screen.getByText("기사 제보 · 독립 확인 완료")).toBeVisible();
+    expect(screen.queryByText("합성 시나리오")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
         name: "안내받은 정보가 실제 현장과 같았나요?",

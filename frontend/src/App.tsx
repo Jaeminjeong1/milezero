@@ -76,8 +76,7 @@ export function App({
           <div className="role-content receiver-content">
             <ReceiverProgress phase={receiver.phase} />
             <GuideCard
-              text={receiver.guide.text}
-              confidence={receiver.guide.confidence}
+              guide={receiver.guide}
               completed={receiver.phase !== "guide_ready"}
               onCompleteDelivery={receiver.completeDelivery}
             />
