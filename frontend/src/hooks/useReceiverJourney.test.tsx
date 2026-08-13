@@ -18,6 +18,12 @@ function feedbackResult() {
 
 function createApi(overrides: Partial<MileZeroApi> = {}): MileZeroApi {
   return {
+    evaluateFriction: vi.fn<MileZeroApi["evaluateFriction"]>(async () => ({
+      detected: true,
+      frictionTypes: ["REPEATED_STOPS"],
+      questionContext: "PARKING",
+      reasons: ["정지와 이동이 세 차례 이상 반복됐습니다."],
+    })),
     createQuestion: vi.fn(async () => null),
     submitReport: vi.fn(),
     getKnowledge: vi.fn<MileZeroApi["getKnowledge"]>(async () => ({

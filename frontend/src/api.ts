@@ -1,6 +1,7 @@
 import type {
   DeliveryKnowledge,
   FeedbackResult,
+  FrictionDecision,
   FrictionFeatures,
   MediaInput,
   MileZeroApi,
@@ -51,6 +52,11 @@ export function createApiClient(options: {
   }
 
   return {
+    evaluateFriction: (features: FrictionFeatures) =>
+      request<FrictionDecision>("/v1/friction/evaluate", {
+        method: "POST",
+        body: JSON.stringify({ features }),
+      }),
     createQuestion: (features: FrictionFeatures) =>
       request<QuestionPlan | null>("/v1/questions", {
         method: "POST",

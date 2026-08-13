@@ -1,11 +1,30 @@
 export type VehicleType = "ALL" | "BIKE" | "CAR" | "VAN" | "1TON";
 
+export type GpsSample = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+  timestampMs: number;
+};
+
 export type FrictionFeatures = {
   dwellSeconds: number;
   stopCount: number;
   travelMeters: number;
   displacementMeters: number;
   acceptedSampleCount: number;
+};
+
+export type FrictionType =
+  | "LONG_DWELL"
+  | "REPEATED_STOPS"
+  | "REPEATED_MOVEMENT";
+
+export type FrictionDecision = {
+  detected: boolean;
+  frictionTypes: FrictionType[];
+  questionContext: "PARKING" | "ACCESS" | "OTHER";
+  reasons: string[];
 };
 
 export type QuestionItem = {
@@ -92,6 +111,7 @@ export type ReportInput = {
 };
 
 export type MileZeroApi = {
+  evaluateFriction(features: FrictionFeatures): Promise<FrictionDecision>;
   createQuestion(features: FrictionFeatures): Promise<QuestionPlan | null>;
   submitReport(input: ReportInput): Promise<ReportReceipt>;
   getKnowledge(input: {

@@ -53,6 +53,32 @@ describe("MileZero API client", () => {
     expect(String(init?.body)).not.toMatch(/latitude|longitude/);
   });
 
+  it("GPS 평가 요청에도 원본 좌표 없이 집계 특징만 전송한다", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        detected: true,
+        frictionTypes: ["REPEATED_STOPS"],
+        questionContext: "PARKING",
+        reasons: ["정지와 이동이 세 차례 이상 반복됐습니다."],
+      }),
+    );
+    const api = createApiClient({ fetchImpl });
+    const features = {
+      dwellSeconds: 420,
+      stopCount: 3,
+      travelMeters: 90,
+      displacementMeters: 20,
+      acceptedSampleCount: 8,
+    };
+
+    await api.evaluateFriction(features);
+
+    const [path, init] = fetchImpl.mock.calls[0];
+    expect(path).toBe("/v1/friction/evaluate");
+    expect(JSON.parse(String(init?.body))).toEqual({ features });
+    expect(String(init?.body)).not.toMatch(/latitude|longitude/);
+  });
+
   it("제보에 가명 기사 ID와 멱등 키를 포함한다", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({
