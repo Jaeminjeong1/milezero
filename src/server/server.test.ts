@@ -1,0 +1,142 @@
+import { afterEach, describe, expect, it } from "vitest";
+
+import { BackendPipeline } from "@/pipeline/pipeline";
+import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
+
+import { buildServer } from "./server";
+
+function createTestServer() {
+  const store = new InMemoryKnowledgeStore();
+  const pipeline = new BackendPipeline({
+    store,
+    generateQuestion: async () => ({
+      shouldAsk: true,
+      category: "PARKING",
+      question: "정차하거나 하역할 때 불편한 점이 있었나요?",
+      choices: ["정차 위치를 찾기 어려웠어요", "불편하지 않았어요"],
+    }),
+    generateKnowledge: async () => ({
+      sanitizedSummary: "1톤 차량은 후문으로 진입합니다.",
+      removedPiiTypes: [],
+      claims: [
+        {
+          type: "ENTRANCE_RECOMMENDATION",
+          value: "1톤 차량은 후문으로 진입",
+          vehicleType: "1TON",
+          timeCondition: null,
+        },
+      ],
+    }),
+    matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+  });
+  return { store, server: buildServer(pipeline) };
+}
+
+const servers: Array<ReturnType<typeof buildServer>> = [];
+
+afterEach(async () => {
+  await Promise.all(servers.splice(0).map((server) => server.close()));
+});
+
+describe("백엔드 HTTP API", () => {
+  it("원본 GPS가 아닌 집계 특징으로 질문을 생성한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/questions",
+      payload: {
+        features: {
+          dwellSeconds: 420,
+          stopCount: 3,
+          travelMeters: 90,
+          displacementMeters: 20,
+          acceptedSampleCount: 8,
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().question).toContain("불편한 점");
+  });
+
+  it("위도·경도가 포함된 원본 GPS 요청을 거부한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/questions",
+      payload: {
+        features: {
+          dwellSeconds: 420,
+          stopCount: 3,
+          travelMeters: 90,
+          displacementMeters: 20,
+          acceptedSampleCount: 8,
+          latitude: 37.4979,
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("제보부터 독립 확인과 다음 기사 가이드까지 연결한다", async () => {
+    const { server, store } = createTestServer();
+    servers.push(server);
+    const reportResponse = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      headers: { "x-driver-id": "driver-a" },
+      payload: {
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: {
+          text: "010-1234-5678로 연락하고 1톤 차량은 후문으로 진입하세요.",
+        },
+      },
+    });
+    expect(reportResponse.statusCode).toBe(201);
+    expect(JSON.stringify(store.snapshot())).not.toContain("010-1234-5678");
+    const claimId = reportResponse.json().claimIds[0];
+
+    const pendingResponse = await server.inject({
+      method: "GET",
+      url: "/v1/knowledge?placeId=place-1&vehicleType=1TON",
+      headers: { "x-driver-id": "driver-b" },
+    });
+    expect(pendingResponse.json().items).toEqual([]);
+    expect(pendingResponse.json().pendingConfirmation.claimId).toBe(claimId);
+
+    const feedbackResponse = await server.inject({
+      method: "POST",
+      url: "/v1/feedback",
+      headers: { "x-driver-id": "driver-b" },
+      payload: { claimId, feedback: "CONFIRM" },
+    });
+    expect(feedbackResponse.json().status).toBe("VERIFIED");
+
+    const guideResponse = await server.inject({
+      method: "GET",
+      url: "/v1/knowledge?placeId=place-1&vehicleType=1TON",
+      headers: { "x-driver-id": "driver-c" },
+    });
+    expect(guideResponse.json().items[0].text).toContain("후문");
+  });
+
+  it("기사 식별자가 없는 제보 요청을 거부한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      payload: {
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: { text: "후문으로 진입합니다." },
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+});

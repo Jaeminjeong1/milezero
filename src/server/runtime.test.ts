@@ -1,0 +1,16 @@
+import { describe, expect, it } from "vitest";
+
+import { parseRuntimeConfig } from "./runtime";
+
+describe("백엔드 실행 설정", () => {
+  it("Railway PORT와 호스트를 읽는다", () => {
+    expect(parseRuntimeConfig({ PORT: "8080" })).toEqual({
+      host: "0.0.0.0",
+      port: 8080,
+    });
+  });
+
+  it("잘못된 포트는 시작 전에 거부한다", () => {
+    expect(() => parseRuntimeConfig({ PORT: "not-a-port" })).toThrow(/PORT/);
+  });
+});

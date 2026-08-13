@@ -1,6 +1,7 @@
 import type { Claim } from "@/domain/contracts";
 import { detectFriction, summarizeGps } from "@/friction/detector";
 import type { GpsSample } from "@/friction/types";
+import type { FrictionFeatures } from "@/friction/types";
 import {
   analyzeContribution,
   type ContributionInput,
@@ -46,6 +47,11 @@ export class BackendPipeline {
     return planQuestion(decision, this.dependencies.generateQuestion);
   }
 
+  async createQuestionFromFeatures(features: FrictionFeatures) {
+    const decision = detectFriction(features);
+    return planQuestion(decision, this.dependencies.generateQuestion);
+  }
+
   async submitContribution(input: {
     placeId: string;
     driverId: string;
@@ -56,6 +62,9 @@ export class BackendPipeline {
       input.contribution,
       this.dependencies.generateKnowledge,
     );
+    if (analysis.claims.length === 0) {
+      throw new Error("저장할 배송지 운영 지식이 없습니다.");
+    }
     const report = await this.dependencies.store.createReport({
       placeId: input.placeId,
       driverId: input.driverId,

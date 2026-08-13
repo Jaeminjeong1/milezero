@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "tsup src/server/main.ts --format esm --platform node --target node22 --out-dir dist --clean",
+    "dev": "tsx watch src/server/main.ts",
+    "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
@@ -11,11 +14,14 @@
   "dependencies": {
     "@google/genai": "latest",
     "@supabase/supabase-js": "latest",
+    "fastify": "^5.11.3",
     "zod": "latest"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
     "@types/node": "latest",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.12",
     "typescript": "latest",
     "vitest": "latest"
   },

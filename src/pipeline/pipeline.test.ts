@@ -77,6 +77,36 @@ describe("MileZero 백엔드 파이프라인", () => {
     expect(JSON.stringify(store.snapshot())).not.toContain("010-1234-5678");
   });
 
+  it("추출할 운영 지식이 없는 응답에는 저장과 포인트를 수행하지 않는다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => ({
+        shouldAsk: true,
+        category: "OTHER",
+        question: "오늘 이 배송에서 불편한 점이 있었나요?",
+        choices: ["다른 기사에게 알려줄 점이 있어요", "불편하지 않았어요"],
+      }),
+      generateKnowledge: async () => ({
+        sanitizedSummary: "불편하지 않았습니다.",
+        removedPiiTypes: [],
+        claims: [],
+      }),
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+
+    await expect(
+      pipeline.submitContribution({
+        placeId,
+        driverId: "driver-a",
+        vehicleType: "1TON",
+        contribution: { answerChoice: "불편하지 않았어요" },
+      }),
+    ).rejects.toThrow(/저장할 배송지 운영 지식/);
+    expect(await store.getPointBalance("driver-a")).toBe(0);
+    expect(store.snapshot().reports).toHaveLength(0);
+  });
+
   it("후보는 독립 확인 카드로만 보여주고 확인 후 정식 가이드로 승격한다", async () => {
     const { pipeline } = createPipeline();
     await pipeline.submitContribution({
