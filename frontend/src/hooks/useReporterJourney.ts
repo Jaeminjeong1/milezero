@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { fileToMedia } from "../api";
+import { summarizeGps } from "../gps/aggregator";
+import {
+  GPS_SCENARIOS,
+  type GpsScenarioId,
+} from "../gps/scenarios";
 import type {
+  FrictionDecision,
+  FrictionFeatures,
   MileZeroApi,
   QuestionAnswer,
   QuestionPlan,
@@ -19,18 +26,17 @@ const SUPPORTED_MEDIA = new Set([
   "audio/mp4",
 ]);
 
-const DEMO_FEATURES = {
-  dwellSeconds: 420,
-  stopCount: 3,
-  travelMeters: 90,
-  displacementMeters: 20,
-  acceptedSampleCount: 8,
-};
-
 type Submission = { text?: string; file?: File };
+type FailedOperation =
+  | { kind: "scenario"; scenarioId: GpsScenarioId }
+  | { kind: "questions" }
+  | { kind: "submission"; submission: Submission };
+
 export type ReporterPhase =
   | "delivering"
+  | "detecting_friction"
   | "friction_detected"
+  | "friction_not_detected"
   | "loading_questions"
   | "asking"
   | "optional_detail"
@@ -39,47 +45,82 @@ export type ReporterPhase =
   | "no_issue"
   | "error";
 
-export function useReporterJourney(
-  api: MileZeroApi,
-  { autoDetectDelayMs = 1_100 }: { autoDetectDelayMs?: number } = {},
-) {
+export function useReporterJourney(api: MileZeroApi) {
   const [phase, setPhase] = useState<ReporterPhase>("delivering");
+  const [selectedScenarioId, setSelectedScenarioId] =
+    useState<GpsScenarioId>();
+  const [features, setFeatures] = useState<FrictionFeatures>();
+  const [decision, setDecision] = useState<FrictionDecision>();
   const [questionPlan, setQuestionPlan] = useState<QuestionPlan | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<QuestionAnswer[]>([]);
   const [receipt, setReceipt] = useState<ReportReceipt | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>();
-  const [run, setRun] = useState(0);
   const idempotencyKey = useRef(createIdempotencyKey());
-  const lastSubmission = useRef<Submission | undefined>(undefined);
+  const lastFailed = useRef<FailedOperation | undefined>(undefined);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setPhase((current) =>
-        current === "delivering" ? "friction_detected" : current,
-      );
-    }, autoDetectDelayMs);
-    return () => window.clearTimeout(timer);
-  }, [autoDetectDelayMs, run]);
+  const reset = useCallback(() => {
+    setPhase("delivering");
+    setSelectedScenarioId(undefined);
+    setFeatures(undefined);
+    setDecision(undefined);
+    setQuestionPlan(null);
+    setCurrentQuestionIndex(0);
+    setAnswers([]);
+    setReceipt(null);
+    setErrorMessage(undefined);
+    lastFailed.current = undefined;
+    idempotencyKey.current = createIdempotencyKey();
+  }, []);
+
+  const triggerScenario = useCallback(
+    async (scenarioId: GpsScenarioId) => {
+      reset();
+      const scenario = GPS_SCENARIOS[scenarioId];
+      const nextFeatures = summarizeGps(scenario.samples);
+      setSelectedScenarioId(scenarioId);
+      setFeatures(nextFeatures);
+      setPhase("detecting_friction");
+      lastFailed.current = { kind: "scenario", scenarioId };
+      try {
+        const nextDecision = await api.evaluateFriction(nextFeatures);
+        setDecision(nextDecision);
+        lastFailed.current = undefined;
+        setPhase(
+          nextDecision.detected
+            ? "friction_detected"
+            : "friction_not_detected",
+        );
+      } catch (error) {
+        setErrorMessage(messageFrom(error));
+        setPhase("error");
+      }
+    },
+    [api, reset],
+  );
 
   const completeDelivery = useCallback(async () => {
+    if (!features || !decision?.detected) return;
     setErrorMessage(undefined);
     setPhase("loading_questions");
+    lastFailed.current = { kind: "questions" };
     try {
-      const plan = await api.createQuestion(DEMO_FEATURES);
+      const plan = await api.createQuestion(features);
       if (!plan?.shouldAsk) {
+        lastFailed.current = undefined;
         setPhase("no_issue");
         return;
       }
       setQuestionPlan(plan);
       setCurrentQuestionIndex(0);
       setAnswers([]);
+      lastFailed.current = undefined;
       setPhase("asking");
     } catch (error) {
       setErrorMessage(messageFrom(error));
       setPhase("error");
     }
-  }, [api]);
+  }, [api, decision, features]);
 
   const selectAnswer = useCallback(
     (choice: string) => {
@@ -108,7 +149,7 @@ export function useReporterJourney(
 
   const send = useCallback(
     async (submission: Submission) => {
-      lastSubmission.current = submission;
+      lastFailed.current = { kind: "submission", submission };
       setErrorMessage(undefined);
       setPhase("submitting");
       try {
@@ -135,7 +176,7 @@ export function useReporterJourney(
           },
         });
         setReceipt(nextReceipt);
-        lastSubmission.current = undefined;
+        lastFailed.current = undefined;
         setPhase("rewarded");
       } catch (error) {
         setErrorMessage(messageFrom(error));
@@ -145,38 +186,36 @@ export function useReporterJourney(
     [answers, api],
   );
 
-  const replay = useCallback(() => {
-    setPhase("delivering");
-    setQuestionPlan(null);
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
-    setReceipt(null);
-    setErrorMessage(undefined);
-    lastSubmission.current = undefined;
-    idempotencyKey.current = createIdempotencyKey();
-    setRun((value) => value + 1);
-  }, []);
-
   const retry = useCallback(async () => {
-    if (lastSubmission.current) {
-      await send(lastSubmission.current);
-      return;
+    const failed = lastFailed.current;
+    if (!failed) return;
+    if (failed.kind === "scenario") {
+      await triggerScenario(failed.scenarioId);
+    } else if (failed.kind === "questions") {
+      await completeDelivery();
+    } else {
+      await send(failed.submission);
     }
-    await completeDelivery();
-  }, [completeDelivery, send]);
+  }, [completeDelivery, send, triggerScenario]);
 
   return {
     phase,
+    selectedScenarioId,
+    scenario: selectedScenarioId ? GPS_SCENARIOS[selectedScenarioId] : null,
+    features,
+    decision,
     questionPlan,
     currentQuestion: questionPlan?.questions[currentQuestionIndex] ?? null,
     currentQuestionIndex,
     answers,
     receipt,
     errorMessage,
+    triggerScenario,
     completeDelivery,
     selectAnswer,
     submitContribution: send,
-    replay,
+    replay: reset,
+    reset,
     retry,
   };
 }

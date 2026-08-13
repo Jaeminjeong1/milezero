@@ -18,7 +18,9 @@ const steps = [
 
 const progressByPhase: Record<ReporterPhase, number> = {
   delivering: 0,
+  detecting_friction: 0,
   friction_detected: 1,
+  friction_not_detected: 1,
   loading_questions: 2,
   asking: 2,
   optional_detail: 3,

@@ -8,8 +8,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { MileZeroApi } from "./types";
 import { App } from "./App";
 
-function createApi(): MileZeroApi {
+function createApi(overrides: Partial<MileZeroApi> = {}): MileZeroApi {
   return {
+    resetSimulation: vi.fn(async () => ({ reset: true as const })),
     evaluateFriction: vi.fn<MileZeroApi["evaluateFriction"]>(async () => ({
       detected: true,
       frictionTypes: ["REPEATED_STOPS"],
@@ -58,13 +59,14 @@ function createApi(): MileZeroApi {
       pendingConfirmation: null,
     })),
     recordFeedback: vi.fn(),
+    ...overrides,
   };
 }
 
 describe("MileZero 역할별 홈", () => {
   it("두 기사 역할과 공통 현장 경험 메시지를 보여준다", async () => {
     const user = userEvent.setup();
-    render(<App api={createApi()} autoDetectDelayMs={60_000} />);
+    render(<App api={createApi()} />);
 
     expect(screen.getByRole("tab", { name: "등록하는 기사" })).toHaveAttribute(
       "aria-selected",
@@ -77,6 +79,15 @@ describe("MileZero 역할별 홈", () => {
       }),
     ).toBeVisible();
     expect(screen.getByText("배송 완료 후 질문")).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: /주변을 서성임/ }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("button", { name: /정차 후 완료 지연/ }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("button", { name: /출입구 반복 탐색/ }),
+    ).not.toHaveLength(0);
 
     await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
 
@@ -90,8 +101,14 @@ describe("MileZero 역할별 홈", () => {
   it("배송 완료 뒤 두 질문을 받고 선택 답변만으로 10P를 지급한다", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<App api={api} autoDetectDelayMs={0} />);
+    render(<App api={api} />);
 
+    await user.click(
+      screen.getAllByRole("button", { name: /주변을 서성임/ })[0],
+    );
+    expect(
+      await screen.findByText("정지와 이동이 세 차례 이상 반복됐습니다."),
+    ).toBeVisible();
     await user.click(await screen.findByRole("button", { name: "배송 완료했어요" }));
     expect(
       await screen.findByRole("heading", {
@@ -119,8 +136,11 @@ describe("MileZero 역할별 홈", () => {
   it("불편하지 않았다는 답변은 제보를 만들지 않는다", async () => {
     const api = createApi();
     const user = userEvent.setup();
-    render(<App api={api} autoDetectDelayMs={0} />);
+    render(<App api={api} />);
 
+    await user.click(
+      screen.getAllByRole("button", { name: /정차 후 완료 지연/ })[0],
+    );
     await user.click(await screen.findByRole("button", { name: "배송 완료했어요" }));
     await user.click(
       await screen.findByRole("button", { name: "불편하지 않았어요" }),
@@ -141,7 +161,7 @@ describe("MileZero 역할별 홈", () => {
       utilityScore: 0.35,
     }));
     const user = userEvent.setup();
-    render(<App api={api} autoDetectDelayMs={60_000} />);
+    render(<App api={api} />);
 
     await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
     expect(
@@ -196,5 +216,31 @@ describe("MileZero 역할별 홈", () => {
       2,
       expect.objectContaining({ feedback: "NOT_HELPFUL" }),
     );
+  });
+
+  it("서버의 초기 데이터를 복원하고 두 기사 화면을 첫 상태로 되돌린다", async () => {
+    const api = createApi();
+    const user = userEvent.setup();
+    render(<App api={api} />);
+
+    await user.click(
+      screen.getAllByRole("button", { name: /출입구 반복 탐색/ })[0],
+    );
+    await screen.findByRole("button", { name: "배송 완료했어요" });
+    await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
+    await screen.findByText(
+      "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+    );
+
+    await user.click(
+      screen.getAllByRole("button", { name: "처음부터 다시" })[0],
+    );
+
+    await waitFor(() => expect(api.resetSimulation).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("tab", { name: "등록하는 기사" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("배송 마찰을 자동으로 찾고 있어요")).toBeVisible();
   });
 });

@@ -52,6 +52,10 @@ export function createApiClient(options: {
   }
 
   return {
+    resetSimulation: () =>
+      request<{ reset: true }>("/v1/simulation/reset", {
+        method: "POST",
+      }),
     evaluateFriction: (features: FrictionFeatures) =>
       request<FrictionDecision>("/v1/friction/evaluate", {
         method: "POST",

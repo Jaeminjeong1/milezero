@@ -79,6 +79,20 @@ describe("MileZero API client", () => {
     expect(String(init?.body)).not.toMatch(/latitude|longitude/);
   });
 
+  it("시뮬레이션 초기화를 서버에 명시적으로 요청한다", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ reset: true }),
+    );
+    const api = createApiClient({ fetchImpl });
+
+    await api.resetSimulation();
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/v1/simulation/reset",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("제보에 가명 기사 ID와 멱등 키를 포함한다", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({

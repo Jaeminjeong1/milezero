@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Bell } from "@phosphor-icons/react";
 
 import type { MileZeroApi } from "./types";
+import { ApiError } from "./api";
 import { AppShell } from "./components/AppShell";
 import { ContributionSheet } from "./components/ContributionSheet";
 import { DeliveryCard } from "./components/DeliveryCard";
 import { ErrorSheet } from "./components/ErrorSheet";
 import { GuideCard } from "./components/GuideCard";
+import { GpsSimulationPanel } from "./components/GpsSimulationPanel";
 import { ProcessingSheet } from "./components/ProcessingSheet";
 import { QuestionSheet } from "./components/QuestionSheet";
 import { ReporterProgress } from "./components/ReporterProgress";
@@ -19,15 +21,12 @@ import { TopTabs, type DeliveryTab } from "./components/TopTabs";
 import { useReporterJourney } from "./hooks/useReporterJourney";
 import { useReceiverJourney } from "./hooks/useReceiverJourney";
 
-export function App({
-  api,
-  autoDetectDelayMs = 1_100,
-}: {
-  api: MileZeroApi;
-  autoDetectDelayMs?: number;
-}) {
+export function App({ api }: { api: MileZeroApi }) {
   const [tab, setTab] = useState<DeliveryTab>("reporter");
-  const reporter = useReporterJourney(api, { autoDetectDelayMs });
+  const [resetting, setResetting] = useState(false);
+  const [resetNotice, setResetNotice] = useState<string>();
+  const [resetError, setResetError] = useState<string>();
+  const reporter = useReporterJourney(api);
   const receiver = useReceiverJourney(api);
 
   const changeTab = (nextTab: DeliveryTab) => {
@@ -37,8 +36,51 @@ export function App({
     }
   };
 
+  const selectScenario = (scenarioId: Parameters<typeof reporter.triggerScenario>[0]) => {
+    setTab("reporter");
+    setResetNotice(undefined);
+    void reporter.triggerScenario(scenarioId);
+  };
+
+  const resetSimulation = async () => {
+    setResetting(true);
+    setResetError(undefined);
+    setResetNotice(undefined);
+    try {
+      await api.resetSimulation();
+      reporter.reset();
+      receiver.reset();
+      setTab("reporter");
+      setResetNotice("초기 지식과 포인트를 복원했어요. 다시 시연할 수 있어요.");
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "SIMULATION_RESET_DISABLED") {
+        reporter.reset();
+        receiver.reset();
+        setTab("reporter");
+        setResetNotice("운영 데이터는 유지하고 화면만 처음으로 돌렸어요.");
+      } else {
+        setResetError(
+          error instanceof Error ? error.message : "초기화하지 못했어요.",
+        );
+      }
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const simulationControls = (
+    <GpsSimulationPanel
+      selectedId={reporter.selectedScenarioId}
+      loading={reporter.phase === "detecting_friction"}
+      resetting={resetting}
+      notice={resetNotice}
+      onSelect={selectScenario}
+      onReset={() => void resetSimulation()}
+    />
+  );
+
   return (
-    <AppShell>
+    <AppShell simulationControls={simulationControls}>
       <TopTabs active={tab} onChange={changeTab} />
       <header className="app-header">
         <div>
@@ -57,14 +99,17 @@ export function App({
               : "출발 전 검증된 경험을 확인해요"
           }
         />
+        <div className="mobile-simulation">{simulationControls}</div>
         {tab === "reporter" ? (
           <div className="role-content">
             <ReporterProgress phase={reporter.phase} />
             <DeliveryCard />
             <StatusCard
               phase={reporter.phase}
+              scenario={reporter.scenario}
+              features={reporter.features}
+              decision={reporter.decision}
               onCompleteDelivery={() => void reporter.completeDelivery()}
-              onReplay={reporter.replay}
             />
           </div>
         ) : receiver.phase === "loading_guide" || receiver.phase === "idle" ? (
@@ -134,6 +179,9 @@ export function App({
           message={receiver.errorMessage}
           onRetry={() => void receiver.retryFeedback()}
         />
+      ) : null}
+      {resetError ? (
+        <ErrorSheet message={resetError} onRetry={() => void resetSimulation()} />
       ) : null}
     </AppShell>
   );

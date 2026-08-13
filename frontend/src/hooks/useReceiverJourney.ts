@@ -30,6 +30,16 @@ export function useReceiverJourney(api: MileZeroApi) {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const lastFailed = useRef<FailedFeedback | undefined>(undefined);
 
+  const reset = useCallback(() => {
+    setPhase("idle");
+    setKnowledge(undefined);
+    setFactFeedback(undefined);
+    setUtilityFeedback(undefined);
+    setErrorMessage(undefined);
+    setFeedbackLoading(false);
+    lastFailed.current = undefined;
+  }, []);
+
   const openGuide = useCallback(async () => {
     setPhase("loading_guide");
     setErrorMessage(undefined);
@@ -140,6 +150,7 @@ export function useReceiverJourney(api: MileZeroApi) {
     answerFact,
     answerUtility,
     retryFeedback,
+    reset,
   };
 }
 

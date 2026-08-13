@@ -19,6 +19,27 @@ h1, h2, p { margin: 0; }
 .privacy-note { display: flex; gap: 12px; margin-top: 32px; padding: 16px; border: 1px solid rgb(52 120 246 / 12%); border-radius: var(--radius-lg); background: rgb(255 255 255 / 65%); backdrop-filter: blur(12px); color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
 .privacy-note svg { flex: 0 0 auto; width: 20px; height: 20px; color: var(--color-secondary-500); }
 .privacy-note strong { color: var(--text-primary); font-size: 13px; }
+.desktop-simulation { margin-top: 14px; }
+.mobile-simulation { display: none; }
+.gps-simulation-panel { padding: 15px; border: 1px solid rgb(52 120 246 / 14%); border-radius: var(--radius-lg); background: rgb(255 255 255 / 78%); box-shadow: var(--shadow-sm); backdrop-filter: blur(14px); }
+.simulation-heading { display: flex; align-items: center; gap: 10px; }
+.simulation-heading > span { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; color: var(--color-secondary-500); background: var(--color-info-bg); }
+.simulation-heading > span svg { width: 21px; height: 21px; }
+.simulation-heading h3 { margin: 2px 0 0; font-size: 14px; font-weight: 900; letter-spacing: -.018em; }
+.simulation-description { margin-top: 10px; color: var(--text-tertiary); font-size: 10px; font-weight: 700; line-height: 1.5; }
+.scenario-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 11px; }
+.scenario-list button { min-width: 0; min-height: 76px; display: grid; align-content: start; gap: 7px; padding: 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-base); text-align: left; cursor: pointer; transition: border-color var(--duration-fast), background var(--duration-fast), transform 80ms; }
+.scenario-list button:hover { border-color: var(--color-secondary-500); transform: translateY(-1px); }
+.scenario-list button[aria-pressed="true"] { border-color: var(--color-secondary-500); background: var(--color-info-bg); box-shadow: inset 0 0 0 1px rgb(52 120 246 / 10%); }
+.scenario-list button:disabled { opacity: .55; cursor: wait; transform: none; }
+.scenario-list button > svg { width: 20px; height: 20px; color: var(--color-secondary-500); }
+.scenario-list button span { min-width: 0; display: grid; gap: 3px; }
+.scenario-list strong { font-size: 11px; font-weight: 900; line-height: 1.35; word-break: keep-all; }
+.scenario-list small { color: var(--text-tertiary); font-size: 8px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+.simulation-reset { width: 100%; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 9px; border: 0; border-radius: var(--radius-md); color: var(--text-secondary); background: var(--bg-subtle); font-size: 10px; font-weight: 900; cursor: pointer; }
+.simulation-reset:disabled { opacity: .55; cursor: wait; }
+.simulation-reset svg { width: 15px; height: 15px; }
+.simulation-notice { margin-top: 8px; color: var(--color-success-fg); font-size: 9px; font-weight: 800; line-height: 1.45; text-align: center; }
 
 .app-shell { position: relative; width: 100%; max-width: 480px; min-height: min(860px, calc(100vh - 64px)); max-height: 900px; overflow: hidden auto; background: var(--bg-base); border: 1px solid rgb(255 255 255 / 70%); border-radius: 28px; box-shadow: var(--shadow-lg); scrollbar-width: none; }
 .app-shell::-webkit-scrollbar { display: none; }
@@ -77,6 +98,8 @@ h1, h2, p { margin: 0; }
 .live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--color-success-fg); box-shadow: 0 0 0 4px rgb(22 165 92 / 12%); }
 .status-copy h2 { margin-top: 5px; font-size: 15px; font-weight: 900; line-height: 1.4; }
 .status-copy > p:last-child { margin-top: 5px; color: var(--text-tertiary); font-size: 11px; }
+.friction-metrics { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.friction-metrics span { min-height: 24px; display: inline-flex; align-items: center; padding: 4px 8px; border-radius: var(--radius-full); color: var(--color-info-fg); background: var(--color-info-bg); font-size: 9px; font-weight: 900; }
 .text-button { grid-column: 1 / -1; min-height: 44px; border: 0; border-radius: var(--radius-md); color: var(--color-secondary-500); background: var(--bg-subtle); font-size: 12px; font-weight: 800; cursor: pointer; }
 .status-card .status-action { grid-column: 1 / -1; margin-top: 0; }
 .safe-strip { grid-column: 1 / -1; display: flex; gap: 9px; margin: 0 -4px -4px; padding: 11px 12px; border-radius: var(--radius-md); background: var(--color-success-bg); color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
@@ -236,7 +259,14 @@ h1, h2, p { margin: 0; }
   html { background: var(--bg-base); }
   .page-frame { display: block; padding: 0; background: var(--bg-base); }
   .desktop-story { display: none; }
+  .mobile-simulation { display: block; margin: -6px 0 18px; }
+  .mobile-simulation .gps-simulation-panel { background: var(--bg-elevated); backdrop-filter: none; }
   .app-shell { max-width: none; min-height: 100vh; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+}
+
+@media (max-width: 420px) {
+  .scenario-list { grid-template-columns: 1fr; }
+  .scenario-list button { min-height: 58px; grid-template-columns: 22px 1fr; align-items: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

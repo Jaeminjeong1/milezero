@@ -111,6 +111,7 @@ export type ReportInput = {
 };
 
 export type MileZeroApi = {
+  resetSimulation(): Promise<{ reset: true }>;
   evaluateFriction(features: FrictionFeatures): Promise<FrictionDecision>;
   createQuestion(features: FrictionFeatures): Promise<QuestionPlan | null>;
   submitReport(input: ReportInput): Promise<ReportReceipt>;

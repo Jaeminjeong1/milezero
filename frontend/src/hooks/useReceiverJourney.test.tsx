@@ -18,6 +18,7 @@ function feedbackResult() {
 
 function createApi(overrides: Partial<MileZeroApi> = {}): MileZeroApi {
   return {
+    resetSimulation: vi.fn(async () => ({ reset: true as const })),
     evaluateFriction: vi.fn<MileZeroApi["evaluateFriction"]>(async () => ({
       detected: true,
       frictionTypes: ["REPEATED_STOPS"],
@@ -83,5 +84,20 @@ describe("도움 받는 기사 여정", () => {
     expect(recordFeedback).toHaveBeenCalledTimes(3);
     expect(recordFeedback.mock.calls.filter(([input]) => input.feedback === "CONFIRM")).toHaveLength(1);
     expect(recordFeedback.mock.calls.filter(([input]) => input.feedback === "NOT_HELPFUL")).toHaveLength(2);
+  });
+
+  it("반복 시연을 위해 화면 상태만 처음으로 되돌린다", async () => {
+    const { result } = renderHook(() => useReceiverJourney(createApi()));
+
+    await act(async () => result.current.openGuide());
+    act(() => result.current.completeDelivery());
+    await act(async () => result.current.answerFact("CONFIRM"));
+
+    act(() => result.current.reset());
+
+    expect(result.current.phase).toBe("idle");
+    expect(result.current.guide).toBeNull();
+    expect(result.current.factFeedback).toBeUndefined();
+    expect(result.current.utilityFeedback).toBeUndefined();
   });
 });

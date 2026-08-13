@@ -1,7 +1,10 @@
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import { LockKey, Sparkle } from "@phosphor-icons/react";
 
-export function AppShell({ children }: PropsWithChildren) {
+export function AppShell({
+  children,
+  simulationControls,
+}: PropsWithChildren<{ simulationControls?: ReactNode }>) {
   return (
     <div className="page-frame">
       <aside className="desktop-story" aria-label="MileZero 소개">
@@ -16,6 +19,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <LockKey weight="fill" aria-hidden="true" />
           <span><strong>개인정보는 저장하지 않아요.</strong><br />발견된 부분만 제거하고 현장 지식만 남깁니다.</span>
         </div>
+        <div className="desktop-simulation">{simulationControls}</div>
       </aside>
       <main className="app-shell">{children}</main>
     </div>
