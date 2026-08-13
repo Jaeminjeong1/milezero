@@ -28,7 +28,7 @@ const fakeGeminiGateway = {
 };
 
 describe("서버 의존성 구성", () => {
-  it("demo 모드는 Gemini·Supabase 키 없이 전체 파이프라인을 만든다", async () => {
+  it("demo 모드는 Gemini·DB 키 없이 전체 파이프라인을 만든다", async () => {
     const dependencies = createDependencies({ MILEZERO_MODE: "demo" });
 
     const question = await dependencies.pipeline.createQuestionFromFeatures({

@@ -102,7 +102,7 @@ describe("Railway PostgreSQL 영속 저장 스키마", () => {
     await database.close();
   }, 30_000);
 
-  it("Supabase role이나 RLS 없이 애플리케이션 DB owner가 접근한다", async () => {
+  it("별도 플랫폼 role이나 RLS 없이 애플리케이션 DB owner가 접근한다", async () => {
     const database = new PGlite();
     await database.exec(await readFile(migrationPath, "utf8"));
 

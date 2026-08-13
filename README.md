@@ -32,7 +32,7 @@ corepack pnpm dev:demo
 ### 프로젝트 구조
 
 ```text
-backend/   # Fastify API, Gemini, 개인정보 제거, 검증·저장, Supabase migration
+backend/   # Fastify API, Gemini, 개인정보 제거, 검증·저장, PostgreSQL migration
 frontend/  # React/Vite 웹앱, 디자인 시스템, 브라우저 API client
 ```
 
@@ -47,14 +47,14 @@ corepack pnpm --filter @milezero/frontend dev
 
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL` — PostgreSQL 연결 문자열, Railway에서는 `${{Postgres.DATABASE_URL}}`
 - `CORS_ORIGINS` — 프런트엔드 origin allowlist, 여러 개면 쉼표로 구분
 - `MILEZERO_MODE` — 운영은 `production`, 외부 키 없는 합성 시연은 `demo`
 - `CLIENT_DIST_DIR` — 선택 사항, 백엔드가 제공할 프런트 빌드의 절대 경로
+- `MIGRATIONS_DIR` — 선택 사항, 배포 컨테이너는 `/app/backend/migrations`를 기본 설정
 - `PORT` — 생략하면 `3000`
 
-Supabase 프로젝트에는 먼저 `backend/supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
+운영 프로세스는 Fastify를 시작하기 전에 `backend/migrations`의 미적용 SQL을 자동 실행한다. migration은 advisory lock과 ledger table로 중복 실행을 막으며, 실패하면 서버를 시작하지 않는다. 공개 클라이언트는 DB에 직접 접근하지 않고 Fastify API만 호출한다.
 
 ### API
 
@@ -63,7 +63,7 @@ Supabase 프로젝트에는 먼저 `backend/supabase/migrations/202608130001_mil
 - `GET /v1/knowledge`: 검증된 가이드와 별도의 후보 확인 요청 조회
 - `POST /v1/feedback`: 사실(`CONFIRM`, `CONTRADICT`)과 유용성(`HELPFUL`, `NOT_HELPFUL`) 피드백 반영
 - `GET /health`: 배포 상태 확인
-- `GET /ready`: Supabase RPC 연결을 포함한 요청 처리 준비 상태 확인
+- `GET /ready`: PostgreSQL 연결과 schema 준비 상태를 포함한 요청 처리 준비 상태 확인
 
 프로덕션 빌드에서는 Fastify가 React 정적 파일과 API를 같은 도메인에서 제공하므로 배포 URL은 하나다.
 
@@ -86,7 +86,7 @@ corepack pnpm build
 corepack pnpm qa:demo
 ```
 
-`qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 사실·도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·Supabase 구성과는 분리된 QA fixture다.
+`qa:demo`는 외부 API 키 없이 합성 데이터만 사용해 `마찰 질문 → 제보 → 독립 기사 확인 → 검증 가이드 → 사실·도움 피드백 → 추가 포인트`를 HTTP API 수준에서 한 바퀴 실행한다. 운영 서버의 Gemini·PostgreSQL 구성과는 분리된 QA fixture다.
 
 ### 심사 시연 순서
 
@@ -100,7 +100,19 @@ corepack pnpm qa:demo
 
 ### Railway 배포
 
-루트 `Dockerfile`과 `railway.json`을 사용한다. Railway 서비스에 운영 필수 환경변수를 secret으로 등록한 뒤 배포한다.
+한 Railway 프로젝트에 Web 서비스와 PostgreSQL 서비스를 만든다. Web 서비스는 저장소 루트의 `Dockerfile`과 `railway.json`을 사용하며 프런트와 API를 같은 도메인에서 제공한다.
+
+Web 서비스 Variables에는 다음 값을 등록한다. `Postgres`는 Railway 화면의 실제 DB 서비스 이름과 정확히 같아야 한다.
+
+```env
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+GEMINI_API_KEY=발급받은_키
+GEMINI_MODEL=gemini-3.6-flash
+MILEZERO_MODE=production
+CORS_ORIGINS=https://${{RAILWAY_PUBLIC_DOMAIN}}
+```
+
+`PORT`는 Railway가 자동 주입하며 직접 설정하지 않는다. 컨테이너 시작 시 schema migration이 먼저 실행되고 `/ready`가 PostgreSQL 준비 상태를 확인한다. 첫 배포 후 Web 서비스의 Settings → Networking에서 `Generate Domain`을 누르면 된다.
 
 ```bash
 railway up

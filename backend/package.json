@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsup src/server/main.ts --format esm --platform node --target node22 --out-dir dist --clean",
+    "build": "tsup src/server/main.ts src/storage/migrate.ts --format esm --platform node --target node22 --out-dir dist --clean",
+    "db:migrate": "tsx src/storage/migrate.ts",
     "dev": "tsx watch src/server/main.ts",
     "dev:demo": "cross-env MILEZERO_MODE=demo tsx watch src/server/main.ts",
-    "start": "node dist/main.js",
+    "start": "node dist/server/main.js",
     "qa:demo": "tsx src/demo/run.ts",
     "test": "vitest run",
     "test:watch": "vitest",
