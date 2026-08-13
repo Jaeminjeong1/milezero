@@ -92,6 +92,20 @@ export class BackendPipeline {
           ? null
           : existing.find((claim) => claim.id === match.targetClaimId) ?? null;
 
+      if (target?.status === "CONFLICT") {
+        operations.push({
+          kind: "NEW",
+          claim: {
+            ...candidate,
+            vehicleType:
+              candidate.vehicleType === "ALL"
+                ? input.vehicleType
+                : candidate.vehicleType,
+          },
+        });
+        continue;
+      }
+
       if (target && match.relation !== "NEW") {
         if (target.reporterId !== input.driverId) {
           operations.push({

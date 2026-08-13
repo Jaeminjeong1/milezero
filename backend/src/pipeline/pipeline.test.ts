@@ -330,6 +330,67 @@ describe("MileZero 백엔드 파이프라인", () => {
     expect(result.status).toBe("CONFLICT");
   });
 
+  it("충돌 지식과 연결된 새 수정 제보는 다시 후보로 저장한다", async () => {
+    const { pipeline, store } = createPipeline();
+    const report = await pipeline.submitContribution({
+      idempotencyKey: "submission-conflict-replacement",
+      placeId,
+      driverId: "driver-a",
+      vehicleType: "1TON",
+      contribution: { answers: selectedAnswers },
+    });
+    const conflictedClaimId = report.claimIds[0];
+    await pipeline.recordFeedback({
+      claimId: conflictedClaimId,
+      driverId: "driver-b",
+      feedback: "CONTRADICT",
+    });
+    await pipeline.recordFeedback({
+      claimId: conflictedClaimId,
+      driverId: "driver-c",
+      feedback: "CONTRADICT",
+    });
+
+    const correctionPipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => ({
+        sanitizedSummary: "하역장이 지하 3층으로 변경됐습니다.",
+        removedPiiTypes: [],
+        claims: [
+          {
+            type: "ENTRANCE_RECOMMENDATION",
+            value: "후문 진입 후 B3 하역장 이용",
+            vehicleType: "1TON",
+            timeCondition: null,
+          },
+        ],
+      }),
+      matchClaim: async (_candidate, existing) => ({
+        relation: "CONTRADICTS",
+        targetClaimId: existing.find((claim) => claim.id === conflictedClaimId)!.id,
+      }),
+    });
+    const correction = await correctionPipeline.submitContribution({
+      idempotencyKey: "submission-correction-candidate",
+      placeId,
+      driverId: "driver-d",
+      vehicleType: "1TON",
+      contribution: { answers: selectedAnswers },
+    });
+
+    expect(correction.claimIds).not.toContain(conflictedClaimId);
+    expect(correction.claimStatuses).toEqual(["CANDIDATE"]);
+    expect(store.snapshot().claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          value: "후문 진입 후 B3 하역장 이용",
+          status: "CANDIDATE",
+        }),
+      ]),
+    );
+  });
+
   it("같은 멱등 키 재전송은 Gemini를 다시 호출하거나 포인트를 중복 지급하지 않는다", async () => {
     const store = new InMemoryKnowledgeStore();
     let analysisCalls = 0;
