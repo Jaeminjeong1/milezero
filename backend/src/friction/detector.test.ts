@@ -49,4 +49,30 @@ describe("GPS 마찰 탐지", () => {
 
     expect(result.detected).toBe(false);
   });
+
+  it("표본이 네 개 미만이면 장기 체류 수치가 있어도 탐지하지 않는다", () => {
+    const result = detectFriction({
+      dwellSeconds: 420,
+      stopCount: 0,
+      travelMeters: 0,
+      displacementMeters: 0,
+      acceptedSampleCount: 3,
+    });
+
+    expect(result.detected).toBe(false);
+    expect(result.reasons).toContain("신뢰할 수 있는 GPS 표본이 부족합니다.");
+  });
+
+  it("좁은 범위 왕복을 출입구 반복 탐색으로 분류한다", () => {
+    const result = detectFriction({
+      dwellSeconds: 300,
+      stopCount: 1,
+      travelMeters: 180,
+      displacementMeters: 25,
+      acceptedSampleCount: 8,
+    });
+
+    expect(result.frictionTypes).toContain("REPEATED_MOVEMENT");
+    expect(result.questionContext).toBe("ACCESS");
+  });
 });

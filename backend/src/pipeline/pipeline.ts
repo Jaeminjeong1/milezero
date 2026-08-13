@@ -53,8 +53,12 @@ export class BackendPipeline {
     return planQuestion(decision, this.dependencies.generateQuestion);
   }
 
+  evaluateFriction(features: FrictionFeatures) {
+    return detectFriction(features);
+  }
+
   async createQuestionFromFeatures(features: FrictionFeatures) {
-    const decision = detectFriction(features);
+    const decision = this.evaluateFriction(features);
     return planQuestion(decision, this.dependencies.generateQuestion);
   }
 

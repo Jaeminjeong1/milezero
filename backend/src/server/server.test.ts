@@ -187,6 +187,51 @@ describe("백엔드 HTTP API", () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it("집계된 GPS 특징을 질문 생성 없이 결정론적으로 평가한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/friction/evaluate",
+      payload: {
+        features: {
+          dwellSeconds: 300,
+          stopCount: 1,
+          travelMeters: 180,
+          displacementMeters: 25,
+          acceptedSampleCount: 8,
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      detected: true,
+      frictionTypes: ["REPEATED_MOVEMENT"],
+      questionContext: "ACCESS",
+    });
+  });
+
+  it("직선 변위가 누적 이동보다 큰 모순된 GPS 집계를 거부한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/friction/evaluate",
+      payload: {
+        features: {
+          dwellSeconds: 300,
+          stopCount: 1,
+          travelMeters: 100,
+          displacementMeters: 200,
+          acceptedSampleCount: 8,
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
   it("도움 없음 피드백을 유용성 신호로 접수한다", async () => {
     const { server } = createTestServer();
     servers.push(server);

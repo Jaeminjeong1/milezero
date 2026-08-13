@@ -17,13 +17,17 @@ const DriverHeaderSchema = z.string().trim().min(1).max(100);
 const VehicleTypeSchema = ClaimSchema.shape.vehicleType;
 const FrictionFeaturesSchema = z
   .object({
-    dwellSeconds: z.number().nonnegative(),
-    stopCount: z.number().int().nonnegative(),
-    travelMeters: z.number().nonnegative(),
-    displacementMeters: z.number().nonnegative(),
-    acceptedSampleCount: z.number().int().nonnegative(),
+    dwellSeconds: z.number().min(0).max(7_200),
+    stopCount: z.number().int().min(0).max(100),
+    travelMeters: z.number().min(0).max(20_000),
+    displacementMeters: z.number().min(0).max(5_000),
+    acceptedSampleCount: z.number().int().min(0).max(10_000),
   })
-  .strict();
+  .strict()
+  .refine(
+    (features) => features.displacementMeters <= features.travelMeters,
+    { message: "직선 변위는 누적 이동보다 클 수 없습니다." },
+  );
 const QuestionBodySchema = z
   .object({ features: FrictionFeaturesSchema })
   .strict();
@@ -119,6 +123,11 @@ export function buildServer(
   server.post("/v1/questions", async (request) => {
     const body = QuestionBodySchema.parse(request.body);
     return pipeline.createQuestionFromFeatures(body.features);
+  });
+
+  server.post("/v1/friction/evaluate", async (request) => {
+    const body = QuestionBodySchema.parse(request.body);
+    return pipeline.evaluateFriction(body.features);
   });
 
   server.post("/v1/reports", async (request, reply) => {

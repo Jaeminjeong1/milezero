@@ -6,6 +6,7 @@ import type {
 
 const MAX_ACCURACY_METERS = 50;
 const MOVEMENT_THRESHOLD_METERS = 12;
+const MIN_SAMPLE_COUNT = 4;
 
 function haversineMeters(a: GpsSample, b: GpsSample): number {
   const earthRadiusMeters = 6_371_000;
@@ -56,20 +57,33 @@ export function summarizeGps(samples: GpsSample[]): FrictionFeatures {
 export function detectFriction(
   features: FrictionFeatures,
 ): FrictionDecision {
+  if (features.acceptedSampleCount < MIN_SAMPLE_COUNT) {
+    return {
+      detected: false,
+      frictionTypes: [],
+      questionContext: "OTHER",
+      reasons: ["신뢰할 수 있는 GPS 표본이 부족합니다."],
+    };
+  }
+
   const frictionTypes: FrictionDecision["frictionTypes"] = [];
   const reasons: string[] = [];
 
-  if (features.dwellSeconds >= 300) {
+  if (features.dwellSeconds >= 360 && features.displacementMeters <= 120) {
     frictionTypes.push("LONG_DWELL");
-    reasons.push("배송지 인근 체류가 5분 이상입니다.");
+    reasons.push("배송지 인근 체류가 6분 이상입니다.");
   }
-  if (features.stopCount >= 3) {
+  if (features.stopCount >= 3 && features.dwellSeconds >= 180) {
     frictionTypes.push("REPEATED_STOPS");
     reasons.push("정지와 이동이 세 차례 이상 반복됐습니다.");
   }
-  if (features.travelMeters >= 150 && features.displacementMeters <= 60) {
+  if (
+    features.travelMeters >= 140 &&
+    features.displacementMeters <= 60 &&
+    features.displacementMeters / Math.max(features.travelMeters, 1) <= 0.4
+  ) {
     frictionTypes.push("REPEATED_MOVEMENT");
-    reasons.push("좁은 범위 안에서 이동이 반복됐습니다.");
+    reasons.push("좁은 범위 안에서 왕복 이동이 반복됐습니다.");
   }
 
   const detected = frictionTypes.length > 0;
@@ -77,10 +91,9 @@ export function detectFriction(
     detected,
     frictionTypes,
     questionContext:
-      frictionTypes.includes("REPEATED_STOPS") ||
-      frictionTypes.includes("REPEATED_MOVEMENT")
+      frictionTypes.includes("REPEATED_STOPS")
         ? "PARKING"
-        : detected
+        : frictionTypes.includes("REPEATED_MOVEMENT") || detected
           ? "ACCESS"
           : "OTHER",
     reasons,
