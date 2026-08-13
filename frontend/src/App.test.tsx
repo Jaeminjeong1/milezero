@@ -218,6 +218,54 @@ describe("MileZero 역할별 홈", () => {
     );
   });
 
+  it("후보 지식을 독립 확인하면 검증된 가이드로 전환한다", async () => {
+    const getKnowledge = vi
+      .fn<MileZeroApi["getKnowledge"]>()
+      .mockResolvedValueOnce({
+        items: [],
+        pendingConfirmation: {
+          claimId: "candidate-claim",
+          text: "1톤 차량은 후문으로 진입하세요",
+        },
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            claimId: "candidate-claim",
+            text: "1톤 차량은 후문으로 진입하세요",
+            type: "ENTRANCE_RECOMMENDATION",
+            vehicleType: "1TON",
+            timeCondition: null,
+            confidence: 0.65,
+            reportedAt: "2026-08-13T00:00:00.000Z",
+          },
+        ],
+        pendingConfirmation: null,
+      });
+    const api = createApi({
+      getKnowledge,
+      recordFeedback: vi.fn<MileZeroApi["recordFeedback"]>(async () => ({
+        accepted: true,
+        status: "VERIFIED",
+        confidence: 0.65,
+        helpfulCount: 0,
+        notHelpfulCount: 0,
+        utilityScore: 0.5,
+      })),
+    });
+    const user = userEvent.setup();
+    render(<App api={api} />);
+
+    await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
+
+    expect(await screen.findByRole("heading", { name: "현재도 맞나요?" })).toBeVisible();
+    expect(screen.getByText("1톤 차량은 후문으로 진입하세요")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "맞아요" }));
+
+    expect(await screen.findByRole("heading", { name: "출발 전 현장 가이드" })).toBeVisible();
+    expect(screen.getByText("1톤 차량은 후문으로 진입하세요")).toBeVisible();
+  });
+
   it("서버의 초기 데이터를 복원하고 두 기사 화면을 첫 상태로 되돌린다", async () => {
     const api = createApi();
     const user = userEvent.setup();

@@ -12,6 +12,7 @@ const steps = [
 const progressByPhase: Record<ReceiverPhase, number> = {
   idle: 0,
   loading_guide: 0,
+  pending_confirmation: 0,
   guide_ready: 0,
   fact_feedback: 1,
   utility_feedback: 2,

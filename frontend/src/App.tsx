@@ -9,6 +9,7 @@ import { DeliveryCard } from "./components/DeliveryCard";
 import { ErrorSheet } from "./components/ErrorSheet";
 import { GuideCard } from "./components/GuideCard";
 import { GpsSimulationPanel } from "./components/GpsSimulationPanel";
+import { PendingKnowledgeCard } from "./components/PendingKnowledgeCard";
 import { ProcessingSheet } from "./components/ProcessingSheet";
 import { QuestionSheet } from "./components/QuestionSheet";
 import { ReporterProgress } from "./components/ReporterProgress";
@@ -117,6 +118,15 @@ export function App({ api }: { api: MileZeroApi }) {
             <span className="loading-ring" />
             <h2>검증된 현장 지식을 불러오고 있어요</h2>
           </section>
+        ) : receiver.phase === "pending_confirmation" && receiver.pendingConfirmation ? (
+          <div className="role-content receiver-content">
+            <PendingKnowledgeCard
+              text={receiver.pendingConfirmation.text}
+              loading={receiver.feedbackLoading}
+              onConfirm={() => void receiver.answerPending("CONFIRM")}
+              onContradict={() => void receiver.answerPending("CONTRADICT")}
+            />
+          </div>
         ) : receiver.guide ? (
           <div className="role-content receiver-content">
             <ReceiverProgress phase={receiver.phase} />

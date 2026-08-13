@@ -47,6 +47,50 @@ function createApi(overrides: Partial<MileZeroApi> = {}): MileZeroApi {
 }
 
 describe("도움 받는 기사 여정", () => {
+  it("후보 지식을 오류로 처리하지 않고 독립 확인 후 정식 가이드를 불러온다", async () => {
+    const getKnowledge = vi
+      .fn<MileZeroApi["getKnowledge"]>()
+      .mockResolvedValueOnce({
+        items: [],
+        pendingConfirmation: {
+          claimId: "candidate-claim",
+          text: "1톤 차량은 후문으로 진입하세요",
+        },
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            claimId: "candidate-claim",
+            text: "1톤 차량은 후문으로 진입하세요",
+            type: "ENTRANCE_RECOMMENDATION",
+            vehicleType: "1TON",
+            timeCondition: null,
+            confidence: 0.65,
+            reportedAt: "2026-08-13T00:00:00.000Z",
+          },
+        ],
+        pendingConfirmation: null,
+      });
+    const api = createApi({ getKnowledge });
+    const { result } = renderHook(() => useReceiverJourney(api));
+
+    await act(async () => result.current.openGuide());
+
+    expect(result.current.phase).toBe("pending_confirmation");
+    expect(result.current.pendingConfirmation?.text).toContain("후문");
+    expect(result.current.errorMessage).toBeUndefined();
+
+    await act(async () => result.current.answerPending("CONFIRM"));
+
+    expect(result.current.phase).toBe("guide_ready");
+    expect(result.current.guide?.text).toContain("후문");
+    expect(api.recordFeedback).toHaveBeenCalledWith({
+      driverId: "demo-driver-b",
+      claimId: "candidate-claim",
+      feedback: "CONFIRM",
+    });
+  });
+
   it("안내를 먼저 보여주고 배송 완료 후 사실과 유용성을 순서대로 받는다", async () => {
     const api = createApi();
     const { result } = renderHook(() => useReceiverJourney(api));
