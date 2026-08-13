@@ -13,6 +13,7 @@ export type ContributionInput = {
   media?: {
     mimeType: string;
     bytes: Uint8Array;
+    removedPiiTypes?: PiiType[];
   };
 };
 
@@ -73,6 +74,7 @@ export async function analyzeContribution(
     sanitizedSummary: sanitizedSummary.text,
     removedPiiTypes: mergePiiTypes([
       preSanitized.removedPiiTypes,
+      input.media?.removedPiiTypes ?? [],
       modelResult.removedPiiTypes,
       sanitizedSummary.removedPiiTypes,
       ...claimSanitizations.flatMap((claim) => [

@@ -51,6 +51,8 @@ export const PiiTypeSchema = z.enum([
   "NAME",
   "PHONE",
   "EMAIL",
+  "RESIDENT_ID",
+  "ACCOUNT",
   "UNIT",
   "PASSWORD",
   "FACE",

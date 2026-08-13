@@ -30,4 +30,16 @@ describe("개인정보 제거", () => {
     });
     expect(result).not.toHaveProperty("needsRetry");
   });
+
+  it("표시된 수령인 이름·주민번호·계좌번호를 제거한다", () => {
+    const result = sanitizeText(
+      "수령인 이름: 홍길동, 주민번호 900101-1234567, 계좌번호 110-123-456789이며 하역장은 B2입니다.",
+    );
+
+    expect(result.text).not.toContain("홍길동");
+    expect(result.text).not.toContain("900101-1234567");
+    expect(result.text).not.toContain("110-123-456789");
+    expect(result.text).toContain("하역장은 B2입니다.");
+    expect(result.removedPiiTypes).toEqual(["NAME", "RESIDENT_ID", "ACCOUNT"]);
+  });
 });

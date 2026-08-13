@@ -204,4 +204,24 @@ describe("백엔드 HTTP API", () => {
 
     expect(response.statusCode).toBe(422);
   });
+
+  it("깨진 base64 미디어는 Gemini 호출 전에 400으로 거부한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      headers: { "x-driver-id": "driver-a" },
+      payload: {
+        idempotencyKey: "server-invalid-media",
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: {
+          media: { mimeType: "image/jpeg", dataBase64: "not@base64" },
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
 });

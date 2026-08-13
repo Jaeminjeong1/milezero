@@ -8,6 +8,23 @@ type SanitizationRule = {
 
 const rules: SanitizationRule[] = [
   {
+    type: "NAME",
+    pattern:
+      /(?:수령인|받는\s*분|고객|담당자)\s*(?:이름)?\s*[:은는]?\s*[가-힣]{2,4}/g,
+    replacement: "[이름 제거]",
+  },
+  {
+    type: "RESIDENT_ID",
+    pattern: /\b\d{6}[-\s]?[1-4]\d{6}\b/g,
+    replacement: "[주민번호 제거]",
+  },
+  {
+    type: "ACCOUNT",
+    pattern:
+      /(?:계좌번호|계좌)\s*[:은는]?\s*\d{2,6}(?:-\d{2,6}){2,4}/g,
+    replacement: "[계좌번호 제거]",
+  },
+  {
     type: "PHONE",
     pattern: /(?:\+82[-.\s]?)?0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
     replacement: "[전화번호 제거]",

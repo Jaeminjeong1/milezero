@@ -8,6 +8,7 @@ import {
   InvalidContributionError,
 } from "@/domain/errors";
 import { GeminiUnavailableError } from "@/gemini/gateway";
+import { InvalidMediaError, prepareMedia } from "@/media/validator";
 import type { BackendPipeline } from "@/pipeline/pipeline";
 
 const DriverHeaderSchema = z.string().trim().min(1).max(100);
@@ -86,10 +87,7 @@ export function buildServer(pipeline: BackendPipeline) {
         answerChoice: body.contribution.answerChoice,
         text: body.contribution.text,
         media: body.contribution.media
-          ? {
-              mimeType: body.contribution.media.mimeType,
-              bytes: Buffer.from(body.contribution.media.dataBase64, "base64"),
-            }
+          ? prepareMedia(body.contribution.media)
           : undefined,
       },
     });
@@ -119,6 +117,12 @@ export function buildServer(pipeline: BackendPipeline) {
           path: issue.path.join("."),
           message: issue.message,
         })),
+      });
+    }
+    if (error instanceof InvalidMediaError) {
+      return reply.code(400).send({
+        code: "INVALID_MEDIA",
+        error: error.message,
       });
     }
     if (error instanceof InvalidContributionError) {

@@ -78,4 +78,30 @@ describe("멀티모달 지식 분석", () => {
       ),
     ).rejects.toThrow(/이미지와 음성/);
   });
+
+  it("미디어 전처리에서 제거한 EXIF를 분석 결과에 합친다", async () => {
+    const result = await analyzeContribution(
+      {
+        media: {
+          mimeType: "image/jpeg",
+          bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]),
+          removedPiiTypes: ["EXIF"],
+        },
+      },
+      async () => ({
+        sanitizedSummary: "후문을 이용합니다.",
+        removedPiiTypes: [],
+        claims: [
+          {
+            type: "ENTRANCE_RECOMMENDATION",
+            value: "후문 이용",
+            vehicleType: "ALL",
+            timeCondition: null,
+          },
+        ],
+      }),
+    );
+
+    expect(result.removedPiiTypes).toContain("EXIF");
+  });
 });
