@@ -1,6 +1,68 @@
 # milezero
 물류 AI 해커톤 MoveAI 카카오모빌리티 부문
 
+## 백엔드 우선 구현
+
+현재 브랜치의 구현 범위는 프런트엔드를 제외한 다음 파이프라인이다.
+
+`GPS 집계 특징 → 배송 마찰 탐지 → 중립 질문 → 텍스트·음성·사진 분석 → 개인정보 제거 → 후보 지식 검증·저장 → 다음 기사 안내 → 사실·도움 피드백`
+
+### 실행
+
+Node.js 22와 pnpm을 사용한다.
+
+```bash
+pnpm install
+cp .env.example .env
+pnpm dev
+```
+
+필수 서버 환경변수:
+
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `PORT` — 생략하면 `3000`
+
+Supabase 프로젝트에는 먼저 `supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
+
+### API
+
+- `POST /v1/questions`: 브라우저에서 계산한 GPS 집계 특징으로 질문 생성
+- `POST /v1/reports`: 기사 응답 분석, 개인정보 제거, 후보 지식 및 기본 포인트 저장
+- `GET /v1/knowledge`: 검증된 가이드와 별도의 후보 확인 요청 조회
+- `POST /v1/feedback`: `CONFIRM`, `CONTRADICT`, `HELPFUL` 피드백 반영
+- `GET /health`: 배포 상태 확인
+
+데모 단계에서는 기사 가명 ID를 `x-driver-id` 헤더로 전달한다. 외부 파일럿 전에는 이 헤더를 신뢰하지 않고 인증 토큰의 사용자 ID로 서버에서 교체해야 한다.
+
+### 개인정보 경계
+
+- 원본 GPS 좌표는 백엔드 API가 받지 않는다.
+- 원본 음성·사진은 요청 메모리에서 Gemini 분석에만 사용하며 저장하지 않는다.
+- 텍스트는 Gemini 호출 전과 구조화 결과 저장 전에 모두 마스킹한다.
+- 데이터베이스에는 비식별 요약·원자 주장·검증 근거·포인트만 저장한다.
+- 개인정보 발견 시 재질문하지 않고 해당 부분만 제거한다.
+
+### 검증
+
+```bash
+pnpm test
+pnpm typecheck
+pnpm build
+```
+
+### Railway 배포
+
+루트 `Dockerfile`과 `railway.json`을 사용한다. Railway 서비스에 네 가지 필수 환경변수를 secret으로 등록한 뒤 배포한다.
+
+```bash
+railway up
+railway logs
+railway domain
+```
+
 # 1. 문제 정의
 
 배달·퀵 운송인은 내비게이션과 GPS를 통해 **배송지 주소 근처까지는 비교적 정확하게 이동할 수 있다.**
