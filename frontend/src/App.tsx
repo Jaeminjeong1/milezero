@@ -1,20 +1,19 @@
 import { useState } from "react";
-import { ArrowClockwise, Bell } from "@phosphor-icons/react";
+import { Bell, NavigationArrow } from "@phosphor-icons/react";
 
 import type { MileZeroApi } from "./types";
 import { AppShell } from "./components/AppShell";
-import { DeliveryCard } from "./components/DeliveryCard";
 import { ContributionSheet } from "./components/ContributionSheet";
+import { DeliveryCard } from "./components/DeliveryCard";
 import { ErrorSheet } from "./components/ErrorSheet";
 import { ProcessingSheet } from "./components/ProcessingSheet";
-import { GuideCard } from "./components/GuideCard";
-import { PendingKnowledgeCard } from "./components/PendingKnowledgeCard";
-import { PointsSummary } from "./components/PointsSummary";
 import { QuestionSheet } from "./components/QuestionSheet";
+import { ReporterProgress } from "./components/ReporterProgress";
 import { RewardSheet } from "./components/RewardSheet";
+import { RoleHero } from "./components/RoleHero";
 import { StatusCard } from "./components/StatusCard";
 import { TopTabs, type DeliveryTab } from "./components/TopTabs";
-import { useDemoJourney } from "./hooks/useDemoJourney";
+import { useReporterJourney } from "./hooks/useReporterJourney";
 
 export function App({
   api,
@@ -23,17 +22,12 @@ export function App({
   api: MileZeroApi;
   autoDetectDelayMs?: number;
 }) {
-  const [tab, setTab] = useState<DeliveryTab>("today");
-  const journey = useDemoJourney(api, { autoDetectDelayMs });
-
-  const changeTab = (nextTab: DeliveryTab) => {
-    setTab(nextTab);
-    if (nextTab === "next") void journey.openNextDelivery();
-  };
+  const [tab, setTab] = useState<DeliveryTab>("reporter");
+  const reporter = useReporterJourney(api, { autoDetectDelayMs });
 
   return (
     <AppShell>
-      <TopTabs active={tab} onChange={changeTab} />
+      <TopTabs active={tab} onChange={setTab} />
       <header className="app-header">
         <div>
           <p className="brand-kicker">MOVE SMARTER</p>
@@ -44,62 +38,57 @@ export function App({
         </button>
       </header>
       <div className="app-content">
-        {tab === "today" ? (
-          <>
-            <section className="hero-copy">
-              <span className="hero-tag">배송지에 거의 다 왔어요</span>
-              <h2>마지막 구간은<br /><em>현장 경험</em>이 안내할게요.</h2>
-            </section>
+        <RoleHero
+          tag={
+            tab === "reporter"
+              ? "현장 경험을 등록하고 보상받아요"
+              : "출발 전 검증된 경험을 확인해요"
+          }
+        />
+        {tab === "reporter" ? (
+          <div className="role-content">
+            <ReporterProgress phase={reporter.phase} />
             <DeliveryCard />
-            <StatusCard onReplay={journey.replay} />
-          </>
-        ) : journey.knowledgeLoading && !journey.knowledge ? (
-          <section className="loading-next" role="status"><span className="loading-ring" /><h2>현장 지식을 불러오고 있어요</h2></section>
-        ) : journey.knowledge?.pendingConfirmation ? (
-          <div className="next-delivery-content">
-            <div className="next-heading"><span className="hero-tag">새로운 배송 · 기사 B</span><h2>센트럴시티 타워<br />현장 정보를 확인해 주세요.</h2></div>
-            <PointsSummary points={journey.totalPoints} />
-            <PendingKnowledgeCard
-              text={journey.knowledge.pendingConfirmation.text}
-              loading={journey.knowledgeLoading}
-              onConfirm={() => void journey.confirmPending("CONFIRM")}
-              onContradict={() => void journey.confirmPending("CONTRADICT")}
-            />
-          </div>
-        ) : journey.knowledge?.items[0] ? (
-          <div className="next-delivery-content">
-            <div className="next-heading"><span className="hero-tag">다음 배송 · 기사 C</span><h2>도착 전에 필요한 정보만<br />먼저 확인하세요.</h2></div>
-            <PointsSummary points={journey.totalPoints} />
-            <GuideCard
-              text={journey.knowledge.items[0].text}
-              confidence={journey.knowledge.items[0].confidence}
-              feedback={journey.guideFeedback as "HELPFUL" | "CONTRADICT" | undefined}
-              loading={journey.knowledgeLoading}
-              onHelpful={() => void journey.rateGuide("HELPFUL")}
-              onChanged={() => void journey.rateGuide("CONTRADICT")}
+            <StatusCard
+              phase={reporter.phase}
+              onCompleteDelivery={() => void reporter.completeDelivery()}
+              onReplay={reporter.replay}
             />
           </div>
         ) : (
-          <section className="empty-next">
-            <ArrowClockwise weight="bold" aria-hidden="true" />
-            <h2>다음 배송 가이드를 준비하고 있어요</h2>
-            <p>오늘의 현장 경험을 보내면 독립 확인 뒤 이곳에 표시됩니다.</p>
-            <button type="button" className="secondary-button" onClick={() => setTab("today")}>오늘 배송으로 돌아가기</button>
+          <section className="receiver-placeholder">
+            <NavigationArrow weight="fill" aria-hidden="true" />
+            <h2>검증된 현장 가이드를 준비했어요</h2>
+            <p>배송 출발 전이나 배송지 근처에서 필요한 정보만 먼저 보여드려요.</p>
           </section>
         )}
       </div>
-      {tab === "today" && journey.phase === "question" && journey.question ? (
-        <QuestionSheet question={journey.question} onSelect={journey.selectChoice} />
+      {tab === "reporter" &&
+      reporter.phase === "asking" &&
+      reporter.currentQuestion &&
+      reporter.questionPlan ? (
+        <QuestionSheet
+          item={reporter.currentQuestion}
+          current={reporter.currentQuestionIndex + 1}
+          total={reporter.questionPlan.questions.length}
+          onSelect={reporter.selectAnswer}
+        />
       ) : null}
-      {tab === "today" && journey.phase === "contribution" && journey.selectedChoice ? (
-        <ContributionSheet choice={journey.selectedChoice} onSubmit={journey.submitContribution} />
+      {tab === "reporter" && reporter.phase === "optional_detail" ? (
+        <ContributionSheet
+          answers={reporter.answers}
+          onSubmit={reporter.submitContribution}
+        />
       ) : null}
-      {journey.phase === "submitting" ? <ProcessingSheet /> : null}
-      {tab === "today" && journey.phase === "rewarded" && journey.receipt ? (
-        <RewardSheet points={journey.receipt.awardedPoints} onNext={() => changeTab("next")} />
+      {reporter.phase === "submitting" ? <ProcessingSheet /> : null}
+      {tab === "reporter" && reporter.phase === "rewarded" && reporter.receipt ? (
+        <RewardSheet
+          points={reporter.receipt.awardedPoints}
+          onNext={() => setTab("receiver")}
+        />
       ) : null}
-      {journey.phase === "error" && journey.errorMessage ? (
-        <ErrorSheet message={journey.errorMessage} onRetry={() => void journey.retrySubmission()} />
+      {reporter.phase === "error" && reporter.errorMessage ? (
+        <ErrorSheet message={reporter.errorMessage} onRetry={() => void reporter.retry()} />
       ) : null}
     </AppShell>
   );

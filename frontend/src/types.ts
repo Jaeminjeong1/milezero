@@ -8,6 +8,12 @@ export type FrictionFeatures = {
   acceptedSampleCount: number;
 };
 
+export type QuestionItem = {
+  id: string;
+  question: string;
+  choices: string[];
+};
+
 export type QuestionPlan = {
   shouldAsk: boolean;
   category:
@@ -17,8 +23,7 @@ export type QuestionPlan = {
     | "ELEVATOR"
     | "INTERNAL_ROUTE"
     | "OTHER";
-  question: string;
-  choices: string[];
+  questions: QuestionItem[];
 };
 
 export type MediaInput = { mimeType: string; dataBase64: string };
@@ -35,13 +40,25 @@ export type DeliveryKnowledge = {
   pendingConfirmation: { claimId: string; text: string } | null;
 };
 
-export type FeedbackType = "CONFIRM" | "CONTRADICT" | "HELPFUL";
+export type FeedbackType =
+  | "CONFIRM"
+  | "CONTRADICT"
+  | "HELPFUL"
+  | "NOT_HELPFUL";
 
 export type FeedbackResult = {
   accepted: boolean;
   status: "CANDIDATE" | "VERIFIED" | "CONFLICT";
   confidence: number;
   helpfulCount: number;
+  notHelpfulCount: number;
+  utilityScore: number;
+};
+
+export type QuestionAnswer = {
+  questionId: string;
+  question: string;
+  choice: string;
 };
 
 export type ReportInput = {
@@ -50,7 +67,7 @@ export type ReportInput = {
   placeId: string;
   vehicleType: VehicleType;
   contribution: {
-    answerChoice?: string;
+    answers: QuestionAnswer[];
     text?: string;
     media?: MediaInput;
   };

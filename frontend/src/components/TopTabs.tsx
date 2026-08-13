@@ -1,4 +1,4 @@
-export type DeliveryTab = "today" | "next";
+export type DeliveryTab = "reporter" | "receiver";
 
 export function TopTabs({
   active,
@@ -12,18 +12,18 @@ export function TopTabs({
       <button
         type="button"
         role="tab"
-        aria-selected={active === "today"}
-        onClick={() => onChange("today")}
+        aria-selected={active === "reporter"}
+        onClick={() => onChange("reporter")}
       >
-        오늘 배송
+        등록하는 기사
       </button>
       <button
         type="button"
         role="tab"
-        aria-selected={active === "next"}
-        onClick={() => onChange("next")}
+        aria-selected={active === "receiver"}
+        onClick={() => onChange("receiver")}
       >
-        다음 배송
+        도움 받는 기사
       </button>
     </nav>
   );

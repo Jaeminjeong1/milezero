@@ -16,8 +16,18 @@ describe("MileZero API client", () => {
       jsonResponse({
         shouldAsk: true,
         category: "PARKING",
-        question: "오늘 이 배송에서 불편한 점이 있었나요?",
-        choices: ["정차 위치", "불편하지 않았어요"],
+        questions: [
+          {
+            id: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choices: [
+              "정차 위치",
+              "출입구 위치",
+              "내부 이동",
+              "불편하지 않았어요",
+            ],
+          },
+        ],
       }),
     );
     const api = createApiClient({ fetchImpl });
@@ -59,7 +69,16 @@ describe("MileZero API client", () => {
       idempotencyKey: "demo-report-001",
       placeId: "demo-place",
       vehicleType: "1TON",
-      contribution: { text: "후문을 이용하세요." },
+      contribution: {
+        answers: [
+          {
+            questionId: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choice: "출입구를 찾기 어려웠어요",
+          },
+        ],
+        text: "후문을 이용하세요.",
+      },
     });
 
     const [, init] = fetchImpl.mock.calls[0];
@@ -67,6 +86,8 @@ describe("MileZero API client", () => {
     expect(JSON.parse(String(init?.body)).idempotencyKey).toBe(
       "demo-report-001",
     );
+    expect(JSON.parse(String(init?.body)).contribution.answers).toHaveLength(1);
+    expect(String(init?.body)).not.toMatch(/latitude|longitude/);
   });
 
   it("미디어 파일을 Data URL 접두사 없는 base64로 변환한다", async () => {

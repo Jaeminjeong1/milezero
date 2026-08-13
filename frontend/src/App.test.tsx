@@ -10,138 +10,113 @@ import { App } from "./App";
 
 function createApi(): MileZeroApi {
   return {
-    createQuestion: vi.fn(async () => null),
-    submitReport: vi.fn(),
+    createQuestion: vi.fn<MileZeroApi["createQuestion"]>(async () => ({
+      shouldAsk: true,
+      category: "ENTRANCE",
+      questions: [
+        {
+          id: "friction_type",
+          question: "오늘 이 배송에서 불편한 점이 있었나요?",
+          choices: [
+            "출입구를 찾기 어려웠어요",
+            "정차가 어려웠어요",
+            "내부 이동이 어려웠어요",
+            "불편하지 않았어요",
+          ],
+        },
+        {
+          id: "actionable_detail",
+          question: "다음 기사에게 가장 먼저 알려줄 점은 무엇인가요?",
+          choices: ["후문 위치", "정차 위치", "하역장 위치", "내부 이동 경로"],
+        },
+      ],
+    })),
+    submitReport: vi.fn<MileZeroApi["submitReport"]>(async () => ({
+      reportId: "report-1",
+      claimIds: ["claim-1"],
+      claimStatuses: ["CANDIDATE"],
+      awardedPoints: 10,
+    })),
     getKnowledge: vi.fn(async () => ({
-      items: [],
+      items: [
+        {
+          claimId: "demo-guide-claim",
+          text: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+          confidence: 0.65,
+        },
+      ],
       pendingConfirmation: null,
     })),
     recordFeedback: vi.fn(),
   };
 }
 
-describe("MileZero 홈", () => {
-  it("로그인 없이 현재 배송과 개인정보 원칙을 바로 보여준다", () => {
+describe("MileZero 역할별 홈", () => {
+  it("두 기사 역할과 공통 현장 경험 메시지를 보여준다", async () => {
+    const user = userEvent.setup();
     render(<App api={createApi()} autoDetectDelayMs={60_000} />);
 
-    expect(screen.getByRole("heading", { name: "MileZero" })).toBeVisible();
-    expect(screen.getByRole("tab", { name: "오늘 배송" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "등록하는 기사" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("tab", { name: "다음 배송" })).toBeVisible();
-    expect(screen.getByText("합성 데이터 데모")).toBeVisible();
-    expect(screen.getByText("센트럴시티 타워")).toBeVisible();
-    expect(screen.getByText("1톤 · 배송지 100m 이내")).toBeVisible();
-    expect(screen.getByText("GPS 원본은 저장하지 않아요")).toBeVisible();
-    expect(screen.getByRole("button", { name: "데모 다시 보기" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "도움 받는 기사" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        name: "마지막 구간은 현장 경험이 안내할게요.",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("배송 완료 후 질문")).toBeVisible();
+
+    await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
+
+    expect(
+      screen.getByRole("heading", {
+        name: "마지막 구간은 현장 경험이 안내할게요.",
+      }),
+    ).toBeVisible();
   });
 
-  it("자동 질문에서 불편을 선택하고 제보해 10포인트를 받는다", async () => {
-    let resolveReport!: (value: Awaited<ReturnType<MileZeroApi["submitReport"]>>) => void;
-    const submitReport = vi.fn(
-      () =>
-        new Promise<Awaited<ReturnType<MileZeroApi["submitReport"]>>>((resolve) => {
-          resolveReport = resolve;
-        }),
-    );
+  it("배송 완료 뒤 두 질문을 받고 선택 답변만으로 10P를 지급한다", async () => {
     const api = createApi();
-    api.createQuestion = vi.fn<MileZeroApi["createQuestion"]>(async () => ({
-      shouldAsk: true,
-      category: "ENTRANCE",
-      question: "오늘 이 배송에서 불편한 점이 있었나요?",
-      choices: ["출입구를 찾기 어려웠어요", "불편하지 않았어요"],
-    }));
-    api.submitReport = submitReport;
     const user = userEvent.setup();
-
     render(<App api={api} autoDetectDelayMs={0} />);
+
+    await user.click(await screen.findByRole("button", { name: "배송 완료했어요" }));
     expect(
       await screen.findByRole("heading", {
         name: "오늘 이 배송에서 불편한 점이 있었나요?",
       }),
     ).toBeVisible();
+    expect(screen.getByText("1/2")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "출입구를 찾기 어려웠어요" }));
-    await user.type(
-      screen.getByLabelText("다음 기사에게 알려줄 내용"),
-      "정문은 복잡해서 후문으로 들어가야 해요.",
+    expect(screen.getByText("2/2")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "후문 위치" }));
+    await user.click(
+      screen.getByRole("button", { name: "선택 답변만 보내고 10P 받기" }),
     );
-    await user.click(screen.getByRole("button", { name: "경험 보내고 10P 받기" }));
-
-    expect(screen.getByText("개인정보 제거")).toBeVisible();
-    resolveReport({
-      reportId: "report-1",
-      claimIds: ["claim-1"],
-      claimStatuses: ["CANDIDATE"],
-      awardedPoints: 10,
-    });
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "10P가 바로 쌓였어요" })).toBeVisible(),
     );
-    expect(submitReport).toHaveBeenCalledWith(
+    expect(api.submitReport).toHaveBeenCalledWith(
       expect.objectContaining({
-        contribution: expect.objectContaining({
-          text: "정문은 복잡해서 후문으로 들어가야 해요.",
-        }),
+        contribution: expect.objectContaining({ answers: expect.any(Array) }),
       }),
     );
   });
 
-  it("다른 기사의 확인을 거쳐 가이드를 보여주고 도움 피드백을 받는다", async () => {
+  it("불편하지 않았다는 답변은 제보를 만들지 않는다", async () => {
     const api = createApi();
-    api.createQuestion = vi.fn<MileZeroApi["createQuestion"]>(async () => ({
-      shouldAsk: true,
-      category: "ENTRANCE",
-      question: "오늘 이 배송에서 불편한 점이 있었나요?",
-      choices: ["출입구를 찾기 어려웠어요", "불편하지 않았어요"],
-    }));
-    api.submitReport = vi.fn<MileZeroApi["submitReport"]>(async () => ({
-      reportId: "report-1",
-      claimIds: ["claim-1"],
-      claimStatuses: ["CANDIDATE"],
-      awardedPoints: 10,
-    }));
-    api.getKnowledge = vi
-      .fn<MileZeroApi["getKnowledge"]>()
-      .mockResolvedValueOnce({
-        items: [],
-        pendingConfirmation: {
-          claimId: "claim-1",
-          text: "1톤 차량은 후문으로 진입",
-        },
-      })
-      .mockResolvedValueOnce({
-        items: [
-          {
-            claimId: "claim-1",
-            text: "1톤 차량은 후문으로 진입",
-            confidence: 0.65,
-          },
-        ],
-        pendingConfirmation: null,
-      });
-    api.recordFeedback = vi
-      .fn<MileZeroApi["recordFeedback"]>()
-      .mockResolvedValueOnce({ accepted: true, status: "VERIFIED", confidence: 0.65, helpfulCount: 0 })
-      .mockResolvedValueOnce({ accepted: true, status: "VERIFIED", confidence: 0.75, helpfulCount: 1 });
     const user = userEvent.setup();
     render(<App api={api} autoDetectDelayMs={0} />);
 
-    await user.click(await screen.findByRole("button", { name: "출입구를 찾기 어려웠어요" }));
-    await user.type(screen.getByLabelText("다음 기사에게 알려줄 내용"), "후문으로 들어가세요.");
-    await user.click(screen.getByRole("button", { name: "경험 보내고 10P 받기" }));
-    await user.click(await screen.findByRole("button", { name: /다음 기사 화면에서 확인하기/ }));
+    await user.click(await screen.findByRole("button", { name: "배송 완료했어요" }));
+    await user.click(
+      await screen.findByRole("button", { name: "불편하지 않았어요" }),
+    );
 
-    expect(await screen.findByRole("heading", { name: "현재도 맞나요?" })).toBeVisible();
-    expect(screen.getByText("1톤 차량은 후문으로 진입")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "맞아요" }));
-
-    expect(await screen.findByRole("heading", { name: "검증된 현장 가이드" })).toBeVisible();
-    expect(screen.getByText("신뢰도 65%")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "도움됐어요" }));
-
-    expect(await screen.findByText("누적 35P")).toBeVisible();
-    expect(screen.getByText("제보자에게 5P가 추가됐어요")).toBeVisible();
+    expect(await screen.findByText("불편 없음으로 기록했어요")).toBeVisible();
+    expect(api.submitReport).not.toHaveBeenCalled();
   });
 });

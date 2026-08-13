@@ -36,6 +36,18 @@ h1, h2, p { margin: 0; }
 .hero-tag { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; border-radius: var(--radius-full); background: var(--color-primary-100); font-size: 11px; font-weight: 800; }
 .hero-copy h2 { margin-top: 12px; font-size: 25px; font-weight: 900; line-height: 1.28; letter-spacing: -.035em; }
 .hero-copy em { color: var(--color-secondary-500); font-style: normal; }
+.role-content { display: grid; gap: 12px; }
+.journey-progress { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: -6px 0 2px; padding: 10px 6px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); list-style: none; box-shadow: var(--shadow-sm); }
+.journey-progress li { min-width: 0; display: grid; justify-items: center; gap: 5px; color: var(--text-tertiary); font-size: 8px; font-weight: 800; text-align: center; }
+.journey-progress svg { width: 26px; height: 26px; padding: 6px; border-radius: 9px; background: var(--bg-subtle); }
+.journey-progress li.complete { color: var(--color-success-fg); }
+.journey-progress li.complete svg { background: var(--color-success-bg); }
+.journey-progress li.current { color: var(--text-primary); }
+.journey-progress li.current svg { color: var(--text-primary); background: var(--color-primary-500); }
+.receiver-placeholder { display: grid; justify-items: center; padding: 54px 22px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); text-align: center; box-shadow: var(--shadow-sm); }
+.receiver-placeholder > svg { width: 52px; height: 52px; padding: 13px; border-radius: 17px; color: var(--text-primary); background: var(--color-primary-500); }
+.receiver-placeholder h2 { margin-top: 16px; font-size: 18px; font-weight: 900; }
+.receiver-placeholder p { margin-top: 8px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
 
 .delivery-card, .status-card { border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
 .delivery-card { padding: 16px; }
@@ -65,6 +77,7 @@ h1, h2, p { margin: 0; }
 .status-copy h2 { margin-top: 5px; font-size: 15px; font-weight: 900; line-height: 1.4; }
 .status-copy > p:last-child { margin-top: 5px; color: var(--text-tertiary); font-size: 11px; }
 .text-button { grid-column: 1 / -1; min-height: 44px; border: 0; border-radius: var(--radius-md); color: var(--color-secondary-500); background: var(--bg-subtle); font-size: 12px; font-weight: 800; cursor: pointer; }
+.status-card .status-action { grid-column: 1 / -1; margin-top: 0; }
 .safe-strip { grid-column: 1 / -1; display: flex; gap: 9px; margin: 0 -4px -4px; padding: 11px 12px; border-radius: var(--radius-md); background: var(--color-success-bg); color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
 .safe-strip svg { flex: 0 0 auto; width: 18px; height: 18px; color: var(--color-success-fg); }
 .safe-strip strong { color: var(--color-success-fg); font-size: 11px; }
