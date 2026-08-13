@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -160,12 +160,21 @@ describe("MileZero 역할별 홈", () => {
         name: "안내받은 정보가 실제 현장과 같았나요?",
       }),
     ).toBeVisible();
+    let feedbackDialog = screen.getByRole("dialog");
+    expect(within(feedbackDialog).getByText("1/2 · 사실 확인")).toBeVisible();
+    expect(
+      within(feedbackDialog).getByText(
+        "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
+      ),
+    ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "정보가 달랐어요" }));
     expect(
       await screen.findByRole("heading", {
         name: "이 안내가 배송에 도움이 됐나요?",
       }),
     ).toBeVisible();
+    feedbackDialog = screen.getByRole("dialog");
+    expect(within(feedbackDialog).getByText("2/2 · 도움 확인")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "도움은 없었어요" }));
 
     expect(

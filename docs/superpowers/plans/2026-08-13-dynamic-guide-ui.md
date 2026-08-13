@@ -1,6 +1,6 @@
 # Dynamic Delivery Guide UI Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Show the next driver only sanitized, independently verified knowledge from a previous driver's report and improve the guide/feedback UI hierarchy.
 
@@ -32,7 +32,7 @@
 - Consumes: `StoredClaim` fields `type`, `value`, `vehicleType`, `timeCondition`, `confidence`, `createdAt`
 - Produces: `DeliveryKnowledgeItem` with `claimId`, `text`, `type`, `vehicleType`, `timeCondition`, `confidence`, `reportedAt`
 
-- [ ] **Step 1: Write failing backend tests**
+- [x] **Step 1: Write failing backend tests**
 
 ```ts
 expect(after.items[0]).toMatchObject({
@@ -44,11 +44,11 @@ expect(after.items[0]).toMatchObject({
 expect(ownKnowledge.items).toEqual([]);
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run: `corepack pnpm --filter @milezero/backend test -- src/pipeline/pipeline.test.ts`
 
-- [ ] **Step 3: Map safe metadata and exclude the reporter**
+- [x] **Step 3: Map safe metadata and exclude the reporter**
 
 ```ts
 items: verified
@@ -65,11 +65,11 @@ items: verified
   }))
 ```
 
-- [ ] **Step 4: Run backend tests and typecheck**
+- [x] **Step 4: Run backend tests and typecheck**
 
 Run: `corepack pnpm --filter @milezero/backend test && corepack pnpm --filter @milezero/backend typecheck`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/pipeline/pipeline.ts backend/src/pipeline/pipeline.test.ts backend/src/server/dependencies.test.ts frontend/src/types.ts docs/superpowers/plans/2026-08-13-dynamic-guide-ui.md
@@ -88,7 +88,7 @@ git commit -m "feat: 검증된 기사 제보의 안내 메타데이터 제공"
 - Consumes: `DeliveryKnowledgeItem`
 - Produces: guide card with dynamic claim label, vehicle condition, time condition, confidence, and verified-source copy
 
-- [ ] **Step 1: Write failing UI assertions**
+- [x] **Step 1: Write failing UI assertions**
 
 ```ts
 expect(screen.getByText("추천 진입 경로")).toBeVisible();
@@ -96,11 +96,11 @@ expect(screen.getByText("승합차")).toBeVisible();
 expect(screen.queryByText("합성 시나리오")).not.toBeInTheDocument();
 ```
 
-- [ ] **Step 2: Run the focused frontend test and verify it fails**
+- [x] **Step 2: Run the focused frontend test and verify it fails**
 
 Run: `corepack pnpm --filter @milezero/frontend test -- src/App.test.tsx`
 
-- [ ] **Step 3: Render the complete item instead of fixed metadata**
+- [x] **Step 3: Render the complete item instead of fixed metadata**
 
 ```tsx
 <GuideCard
@@ -110,15 +110,15 @@ Run: `corepack pnpm --filter @milezero/frontend test -- src/App.test.tsx`
 />
 ```
 
-- [ ] **Step 4: Refine spacing, typography, source badge, and responsive tags**
+- [x] **Step 4: Refine spacing, typography, source badge, and responsive tags**
 
 Use existing design tokens and keep the primary delivery-complete CTA at least 54px high.
 
-- [ ] **Step 5: Run frontend tests and typecheck**
+- [x] **Step 5: Run frontend tests and typecheck**
 
 Run: `corepack pnpm --filter @milezero/frontend test && corepack pnpm --filter @milezero/frontend typecheck`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/App.tsx frontend/src/components/GuideCard.tsx frontend/src/styles/global.css frontend/src/App.test.tsx
@@ -137,7 +137,7 @@ git commit -m "feat: 기사 제보 기반 동적 배송 가이드 개선"
 - Consumes: the `text` of the exact guide being evaluated and `ReceiverPhase`
 - Produces: compact `1/2 사실 확인` and `2/2 도움 확인` dialog states
 
-- [ ] **Step 1: Write failing UI assertions**
+- [x] **Step 1: Write failing UI assertions**
 
 ```ts
 expect(screen.getByText("1/2 · 사실 확인")).toBeVisible();
@@ -145,11 +145,11 @@ expect(screen.getByText(displayedGuideText)).toBeVisible();
 expect(screen.getByText("2/2 · 도움 확인")).toBeVisible();
 ```
 
-- [ ] **Step 2: Run the focused frontend test and verify it fails**
+- [x] **Step 2: Run the focused frontend test and verify it fails**
 
 Run: `corepack pnpm --filter @milezero/frontend test -- src/App.test.tsx`
 
-- [ ] **Step 3: Add the guide context and step labels**
+- [x] **Step 3: Add the guide context and step labels**
 
 ```tsx
 <ReceiverFeedbackSheet
@@ -162,15 +162,15 @@ Run: `corepack pnpm --filter @milezero/frontend test -- src/App.test.tsx`
 />
 ```
 
-- [ ] **Step 4: Reduce oversized whitespace and strengthen mobile actions**
+- [x] **Step 4: Reduce oversized whitespace and strengthen mobile actions**
 
 Keep the sheet content compact, add a quoted guide context surface, and retain two equal-width action buttons.
 
-- [ ] **Step 5: Run full verification**
+- [x] **Step 5: Run full verification**
 
 Run: `corepack pnpm test && corepack pnpm typecheck && corepack pnpm build && corepack pnpm qa:demo`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/App.tsx frontend/src/components/ReceiverFeedbackSheet.tsx frontend/src/styles/global.css frontend/src/App.test.tsx

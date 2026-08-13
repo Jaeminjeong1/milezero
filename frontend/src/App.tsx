@@ -118,8 +118,10 @@ export function App({
       {tab === "receiver" &&
       (receiver.phase === "fact_feedback" ||
         receiver.phase === "utility_feedback" ||
-        receiver.phase === "feedback_complete") ? (
+        receiver.phase === "feedback_complete") &&
+      receiver.guide ? (
         <ReceiverFeedbackSheet
+          guideText={receiver.guide.text}
           phase={receiver.phase}
           loading={receiver.feedbackLoading}
           completionMessage={receiver.completionMessage}
