@@ -50,13 +50,15 @@ const ClaimRowSchema = z.object({
   status: z.enum(["CANDIDATE", "VERIFIED", "CONFLICT"]),
   confidence: z.coerce.number(),
   helpful_count: z.coerce.number().int(),
+  not_helpful_count: z.coerce.number().int(),
+  utility_score: z.coerce.number(),
   created_at: z.string(),
 });
 
 const EvidenceRowSchema = z.object({
   claim_id: z.string(),
   driver_id: z.string(),
-  feedback: z.enum(["CONFIRM", "CONTRADICT", "HELPFUL"]),
+  feedback: z.enum(["CONFIRM", "CONTRADICT", "HELPFUL", "NOT_HELPFUL"]),
   source: z.enum(["REPORT", "DRIVER_FEEDBACK"]),
   created_at: z.string(),
 });
@@ -143,7 +145,13 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
   async createClaim(
     claim: Omit<
       StoredClaim,
-      "id" | "status" | "confidence" | "helpfulCount" | "createdAt"
+      | "id"
+      | "status"
+      | "confidence"
+      | "helpfulCount"
+      | "notHelpfulCount"
+      | "utilityScore"
+      | "createdAt"
     >,
   ): Promise<StoredClaim> {
     return mapClaimRow(
@@ -191,7 +199,14 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
 
   async updateClaim(
     claimId: string,
-    update: Pick<StoredClaim, "status" | "confidence" | "helpfulCount">,
+    update: Pick<
+      StoredClaim,
+      | "status"
+      | "confidence"
+      | "helpfulCount"
+      | "notHelpfulCount"
+      | "utilityScore"
+    >,
   ): Promise<StoredClaim> {
     return mapClaimRow(
       ClaimRowSchema.parse(
@@ -201,6 +216,8 @@ export class SupabaseKnowledgeStore implements KnowledgeStore {
             status: update.status,
             confidence: update.confidence,
             helpful_count: update.helpfulCount,
+            not_helpful_count: update.notHelpfulCount,
+            utility_score: update.utilityScore,
           },
         }),
       ),
@@ -284,6 +301,8 @@ function mapClaimRow(row: z.infer<typeof ClaimRowSchema>): StoredClaim {
     status: row.status,
     confidence: row.confidence,
     helpfulCount: row.helpful_count,
+    notHelpfulCount: row.not_helpful_count,
+    utilityScore: row.utility_score,
     createdAt: row.created_at,
   };
 }

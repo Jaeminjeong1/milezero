@@ -33,6 +33,8 @@ describe("Supabase 지식 저장소", () => {
               status: "CANDIDATE",
               confidence: 0.35,
               helpful_count: 0,
+              not_helpful_count: 0,
+              utility_score: 0.5,
               created_at: "2026-08-13T00:00:00.000Z",
             },
             error: null,

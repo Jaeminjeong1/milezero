@@ -22,6 +22,8 @@ export type StoredClaim = Claim & {
   status: ClaimStatus;
   confidence: number;
   helpfulCount: number;
+  notHelpfulCount: number;
+  utilityScore: number;
   createdAt: string;
 };
 
@@ -50,7 +52,7 @@ export type ContributionOperation =
   | {
       kind: "EVIDENCE";
       claimId: string;
-      feedback: Exclude<FeedbackType, "HELPFUL">;
+      feedback: Extract<FeedbackType, "CONFIRM" | "CONTRADICT">;
     };
 
 export type CommitContributionInput = {
@@ -76,7 +78,13 @@ export interface KnowledgeStore {
   createClaim(
     claim: Omit<
       StoredClaim,
-      "id" | "status" | "confidence" | "helpfulCount" | "createdAt"
+      | "id"
+      | "status"
+      | "confidence"
+      | "helpfulCount"
+      | "notHelpfulCount"
+      | "utilityScore"
+      | "createdAt"
     >,
   ): Promise<StoredClaim>;
   findClaims(input: {
@@ -88,7 +96,14 @@ export interface KnowledgeStore {
   getClaim(claimId: string): Promise<StoredClaim | null>;
   updateClaim(
     claimId: string,
-    update: Pick<StoredClaim, "status" | "confidence" | "helpfulCount">,
+    update: Pick<
+      StoredClaim,
+      | "status"
+      | "confidence"
+      | "helpfulCount"
+      | "notHelpfulCount"
+      | "utilityScore"
+    >,
   ): Promise<StoredClaim>;
   addEvidence(input: {
     claimId: string;

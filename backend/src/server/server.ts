@@ -61,7 +61,7 @@ const KnowledgeQuerySchema = z.object({
 const FeedbackBodySchema = z
   .object({
     claimId: z.string().trim().min(1).max(100),
-    feedback: z.enum(["CONFIRM", "CONTRADICT", "HELPFUL"]),
+    feedback: z.enum(["CONFIRM", "CONTRADICT", "HELPFUL", "NOT_HELPFUL"]),
   })
   .strict();
 

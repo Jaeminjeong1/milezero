@@ -11,6 +11,13 @@ import type {
   StoredReport,
 } from "./contracts";
 
+export type InMemoryKnowledgeSeed = {
+  reports?: StoredReport[];
+  claims?: StoredClaim[];
+  evidence?: StoredEvidence[];
+  points?: PointEntry[];
+};
+
 export class InMemoryKnowledgeStore implements KnowledgeStore {
   private reportSequence = 0;
   private claimSequence = 0;
@@ -19,6 +26,13 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
   private evidence: StoredEvidence[] = [];
   private points: PointEntry[] = [];
   private contributionReceipts = new Map<string, ContributionReceipt>();
+
+  constructor(seed: InMemoryKnowledgeSeed = {}) {
+    this.reports = structuredClone(seed.reports ?? []);
+    this.claims = structuredClone(seed.claims ?? []);
+    this.evidence = structuredClone(seed.evidence ?? []);
+    this.points = structuredClone(seed.points ?? []);
+  }
 
   async getContributionReceipt(
     idempotencyKey: string,
@@ -117,7 +131,13 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
   async createClaim(
     claim: Omit<
       StoredClaim,
-      "id" | "status" | "confidence" | "helpfulCount" | "createdAt"
+      | "id"
+      | "status"
+      | "confidence"
+      | "helpfulCount"
+      | "notHelpfulCount"
+      | "utilityScore"
+      | "createdAt"
     >,
   ): Promise<StoredClaim> {
     const stored: StoredClaim = {
@@ -126,6 +146,8 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
       status: "CANDIDATE",
       confidence: 0.35,
       helpfulCount: 0,
+      notHelpfulCount: 0,
+      utilityScore: 0.5,
       createdAt: new Date().toISOString(),
     };
     this.claims.push(stored);
@@ -158,7 +180,14 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
 
   async updateClaim(
     claimId: string,
-    update: Pick<StoredClaim, "status" | "confidence" | "helpfulCount">,
+    update: Pick<
+      StoredClaim,
+      | "status"
+      | "confidence"
+      | "helpfulCount"
+      | "notHelpfulCount"
+      | "utilityScore"
+    >,
   ): Promise<StoredClaim> {
     const claim = this.claims.find((item) => item.id === claimId);
     if (!claim) throw new Error("지식 후보를 찾을 수 없습니다.");
@@ -172,13 +201,12 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
     feedback: FeedbackType;
     source: StoredEvidence["source"];
   }): Promise<boolean> {
-    const isFactFeedback = input.feedback !== "HELPFUL";
+    const dimension = feedbackDimension(input.feedback);
     const duplicate = this.evidence.some(
       (item) =>
         item.claimId === input.claimId &&
         item.driverId === input.driverId &&
-        (item.feedback === input.feedback ||
-          (isFactFeedback && item.feedback !== "HELPFUL")),
+        feedbackDimension(item.feedback) === dimension,
     );
     if (duplicate) return false;
     this.evidence.push({
@@ -214,4 +242,10 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
       points: this.points,
     });
   }
+}
+
+function feedbackDimension(feedback: FeedbackType): "FACT" | "UTILITY" {
+  return feedback === "CONFIRM" || feedback === "CONTRADICT"
+    ? "FACT"
+    : "UTILITY";
 }

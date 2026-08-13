@@ -1,4 +1,8 @@
-export type FeedbackType = "CONFIRM" | "CONTRADICT" | "HELPFUL";
+export type FeedbackType =
+  | "CONFIRM"
+  | "CONTRADICT"
+  | "HELPFUL"
+  | "NOT_HELPFUL";
 export type ClaimStatus = "CANDIDATE" | "VERIFIED" | "CONFLICT";
 
 export type ClaimEvidence = {
@@ -13,6 +17,8 @@ export function evaluateClaim(
   status: ClaimStatus;
   confidence: number;
   helpfulCount: number;
+  notHelpfulCount: number;
+  utilityScore: number;
 } {
   const independent = evidence.filter(
     (item) => item.driverId !== reporterId,
@@ -32,35 +38,46 @@ export function evaluateClaim(
       .filter((item) => item.feedback === "HELPFUL")
       .map((item) => item.driverId),
   ).size;
+  const notHelpfulCount = new Set(
+    independent
+      .filter((item) => item.feedback === "NOT_HELPFUL")
+      .map((item) => item.driverId),
+  ).size;
   const confidence = Math.max(
     0,
     Math.min(
       1,
-      0.35 +
-        confirmCount * 0.3 +
-        helpfulCount * 0.1 -
-        contradictCount * 0.25,
+      0.35 + confirmCount * 0.3 - contradictCount * 0.25,
     ),
   );
   const roundedConfidence = Math.round(confidence * 100) / 100;
+  const utilityScore = Math.max(
+    0,
+    Math.min(1, 0.5 + helpfulCount * 0.1 - notHelpfulCount * 0.15),
+  );
+  const roundedUtilityScore = Math.round(utilityScore * 100) / 100;
+
+  const evaluation = {
+    confidence: roundedConfidence,
+    helpfulCount,
+    notHelpfulCount,
+    utilityScore: roundedUtilityScore,
+  };
 
   if (contradictCount >= 2) {
     return {
       status: "CONFLICT",
-      confidence: roundedConfidence,
-      helpfulCount,
+      ...evaluation,
     };
   }
   if (confirmCount >= 1) {
     return {
       status: "VERIFIED",
-      confidence: roundedConfidence,
-      helpfulCount,
+      ...evaluation,
     };
   }
   return {
     status: "CANDIDATE",
-    confidence: roundedConfidence,
-    helpfulCount,
+    ...evaluation,
   };
 }

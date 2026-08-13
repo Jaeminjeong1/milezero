@@ -12,7 +12,7 @@ const migrationPath = fileURLToPath(
 );
 
 describe("Supabase 영속 저장 스키마", () => {
-  it("비식별 report·claim을 저장하고 증거 중복을 막는다", async () => {
+  it("비식별 report·claim을 저장하고 사실·유용성 중복을 각각 막는다", async () => {
     const database = new PGlite();
     await database.exec(
       "create role anon; create role authenticated; create role service_role;",
@@ -58,17 +58,51 @@ describe("Supabase 영속 저장 스키마", () => {
     );
     const duplicate = await database.query<{ accepted: boolean }>(
       "select mz_add_evidence($1::jsonb) as accepted",
-      [evidencePayload],
+      [
+        JSON.stringify({
+          claim_id: claimId,
+          driver_id: "driver-b",
+          feedback: "CONTRADICT",
+          source: "DRIVER_FEEDBACK",
+        }),
+      ],
+    );
+    const utility = await database.query<{ accepted: boolean }>(
+      "select mz_add_evidence($1::jsonb) as accepted",
+      [
+        JSON.stringify({
+          claim_id: claimId,
+          driver_id: "driver-b",
+          feedback: "NOT_HELPFUL",
+          source: "DRIVER_FEEDBACK",
+        }),
+      ],
+    );
+    const duplicateUtility = await database.query<{ accepted: boolean }>(
+      "select mz_add_evidence($1::jsonb) as accepted",
+      [
+        JSON.stringify({
+          claim_id: claimId,
+          driver_id: "driver-b",
+          feedback: "HELPFUL",
+          source: "DRIVER_FEEDBACK",
+        }),
+      ],
     );
 
     expect(first.rows[0].accepted).toBe(true);
     expect(duplicate.rows[0].accepted).toBe(false);
+    expect(utility.rows[0].accepted).toBe(true);
+    expect(duplicateUtility.rows[0].accepted).toBe(false);
 
     const columns = await database.query<{ column_name: string }>(
       "select column_name from information_schema.columns where table_schema = 'public' and table_name in ('reports', 'claims')",
     );
     expect(columns.rows.map((row) => row.column_name)).not.toEqual(
       expect.arrayContaining(["raw_text", "raw_media", "gps_trace"]),
+    );
+    expect(columns.rows.map((row) => row.column_name)).toEqual(
+      expect.arrayContaining(["not_helpful_count", "utility_score"]),
     );
 
     await database.close();

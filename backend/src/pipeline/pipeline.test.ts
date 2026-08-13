@@ -220,6 +220,51 @@ describe("MileZero 백엔드 파이프라인", () => {
     expect(await store.getPointBalance("driver-a")).toBe(15);
   });
 
+  it("같은 기사의 사실과 유용성 피드백을 한 건씩만 받는다", async () => {
+    const { pipeline } = createPipeline();
+    const report = await pipeline.submitContribution({
+      idempotencyKey: "submission-feedback-dimensions",
+      placeId,
+      driverId: "driver-a",
+      vehicleType: "1TON",
+      contribution: { answers: selectedAnswers },
+    });
+    const claimId = report.claimIds[0];
+
+    const fact = await pipeline.recordFeedback({
+      claimId,
+      driverId: "driver-b",
+      feedback: "CONFIRM",
+    });
+    const utility = await pipeline.recordFeedback({
+      claimId,
+      driverId: "driver-b",
+      feedback: "NOT_HELPFUL",
+    });
+    const repeatedFact = await pipeline.recordFeedback({
+      claimId,
+      driverId: "driver-b",
+      feedback: "CONTRADICT",
+    });
+    const repeatedUtility = await pipeline.recordFeedback({
+      claimId,
+      driverId: "driver-b",
+      feedback: "HELPFUL",
+    });
+
+    expect(fact.accepted).toBe(true);
+    expect(utility).toEqual(
+      expect.objectContaining({
+        accepted: true,
+        status: "VERIFIED",
+        notHelpfulCount: 1,
+        utilityScore: 0.35,
+      }),
+    );
+    expect(repeatedFact.accepted).toBe(false);
+    expect(repeatedUtility.accepted).toBe(false);
+  });
+
   it("피드백은 중복이어도 누락된 보상을 멱등하게 복구한다", async () => {
     class FailOncePointStore extends InMemoryKnowledgeStore {
       private failed = false;

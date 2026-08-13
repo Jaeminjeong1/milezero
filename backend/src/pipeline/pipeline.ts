@@ -203,6 +203,8 @@ export class BackendPipeline {
       status: updated.status,
       confidence: updated.confidence,
       helpfulCount: updated.helpfulCount,
+      notHelpfulCount: updated.notHelpfulCount,
+      utilityScore: updated.utilityScore,
     };
   }
 

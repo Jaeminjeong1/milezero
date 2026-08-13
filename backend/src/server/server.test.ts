@@ -187,6 +187,41 @@ describe("백엔드 HTTP API", () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it("도움 없음 피드백을 유용성 신호로 접수한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const report = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      headers: { "x-driver-id": "driver-a" },
+      payload: {
+        idempotencyKey: "not-helpful-report",
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: { answers: selectedAnswers },
+      },
+    });
+
+    const feedback = await server.inject({
+      method: "POST",
+      url: "/v1/feedback",
+      headers: { "x-driver-id": "driver-b" },
+      payload: {
+        claimId: report.json().claimIds[0],
+        feedback: "NOT_HELPFUL",
+      },
+    });
+
+    expect(feedback.statusCode).toBe(200);
+    expect(feedback.json()).toEqual(
+      expect.objectContaining({
+        status: "CANDIDATE",
+        notHelpfulCount: 1,
+        utilityScore: 0.35,
+      }),
+    );
+  });
+
   it("제보부터 독립 확인과 다음 기사 가이드까지 연결한다", async () => {
     const { server, store } = createTestServer();
     servers.push(server);

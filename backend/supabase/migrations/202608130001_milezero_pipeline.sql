@@ -1,5 +1,5 @@
 create type claim_status as enum ('CANDIDATE', 'VERIFIED', 'CONFLICT');
-create type feedback_type as enum ('CONFIRM', 'CONTRADICT', 'HELPFUL');
+create type feedback_type as enum ('CONFIRM', 'CONTRADICT', 'HELPFUL', 'NOT_HELPFUL');
 create type evidence_source as enum ('REPORT', 'DRIVER_FEEDBACK');
 create type point_reason as enum ('REPORT_CREATED', 'CLAIM_VERIFIED', 'GUIDE_HELPFUL');
 
@@ -25,6 +25,8 @@ create table claims (
   status claim_status not null default 'CANDIDATE',
   confidence numeric(4, 3) not null default 0.350 check (confidence between 0 and 1),
   helpful_count integer not null default 0 check (helpful_count >= 0),
+  not_helpful_count integer not null default 0 check (not_helpful_count >= 0),
+  utility_score numeric(4, 3) not null default 0.500 check (utility_score between 0 and 1),
   created_at timestamptz not null default now()
 );
 create index claims_delivery_lookup_idx
@@ -48,6 +50,9 @@ create table claim_evidence (
 create unique index claim_evidence_one_fact_verdict_idx
   on claim_evidence(claim_id, driver_id)
   where feedback in ('CONFIRM', 'CONTRADICT');
+create unique index claim_evidence_one_utility_verdict_idx
+  on claim_evidence(claim_id, driver_id)
+  where feedback in ('HELPFUL', 'NOT_HELPFUL');
 
 create table points_ledger (
   id uuid primary key default gen_random_uuid(),
@@ -174,7 +179,9 @@ begin
   set
     status = (payload->>'status')::claim_status,
     confidence = (payload->>'confidence')::numeric,
-    helpful_count = (payload->>'helpful_count')::integer
+    helpful_count = (payload->>'helpful_count')::integer,
+    not_helpful_count = (payload->>'not_helpful_count')::integer,
+    utility_score = (payload->>'utility_score')::numeric
   where id = (payload->>'claim_id')::uuid
   returning * into updated;
   if updated.id is null then

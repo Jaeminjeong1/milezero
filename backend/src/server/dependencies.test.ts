@@ -37,6 +37,23 @@ describe("서버 의존성 구성", () => {
     await expect(dependencies.readiness()).resolves.toBeDefined();
   });
 
+  it("demo 모드는 도움 받는 기사에게 검증된 사전 가이드를 제공한다", async () => {
+    const dependencies = createDependencies({ MILEZERO_MODE: "demo" });
+
+    const knowledge = await dependencies.pipeline.getDeliveryKnowledge({
+      placeId: "demo-office-tower",
+      driverId: "demo-driver-b",
+      vehicleType: "1TON",
+    });
+
+    expect(knowledge.items[0]).toEqual(
+      expect.objectContaining({
+        claimId: "demo-guide-claim",
+        text: expect.stringContaining("B2"),
+      }),
+    );
+  });
+
   it("기본 production 모드는 Gemini와 Supabase 설정을 요구한다", () => {
     expect(() => createDependencies({})).toThrow(/GEMINI_API_KEY/);
   });

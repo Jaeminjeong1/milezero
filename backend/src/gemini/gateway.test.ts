@@ -122,6 +122,8 @@ describe("Gemini 모델 게이트웨이", () => {
           status: "CANDIDATE",
           confidence: 0.35,
           helpfulCount: 0,
+          notHelpfulCount: 0,
+          utilityScore: 0.5,
           createdAt: "2026-08-13T00:00:00.000Z",
         },
       ],
@@ -209,6 +211,8 @@ describe("Gemini 모델 게이트웨이", () => {
       status: "CANDIDATE" as const,
       confidence: 0.35,
       helpfulCount: 0,
+      notHelpfulCount: 0,
+      utilityScore: 0.5,
       createdAt: "2026-08-13T00:00:00.000Z",
     };
 
