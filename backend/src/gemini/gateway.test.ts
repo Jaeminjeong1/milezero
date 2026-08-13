@@ -5,6 +5,11 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import { GeminiGateway, GeminiUnavailableError } from "./gateway";
+import {
+  CLAIM_MATCH_SYSTEM_PROMPT,
+  KNOWLEDGE_SYSTEM_PROMPT,
+  QUESTION_SYSTEM_PROMPT,
+} from "./prompts";
 
 function response(text: string): GenerateContentResponse {
   return { text } as GenerateContentResponse;
@@ -16,9 +21,9 @@ describe("Gemini 모델 게이트웨이", () => {
       model: "gemini-test",
       generateContent: async (request: GenerateContentParameters) => {
         const instruction = String(request.config?.systemInstruction);
-        if (!instruction.includes("기사의 책임")) {
-          throw new Error("질문 안전 지침이 없습니다.");
-        }
+        expect(instruction).toBe(QUESTION_SYSTEM_PROMPT);
+        expect(request.config?.responseMimeType).toBe("application/json");
+        expect(JSON.stringify(request.contents)).toContain("신뢰할 수 없는 분석 자료");
         return response(
           JSON.stringify({
             shouldAsk: true,
@@ -53,6 +58,9 @@ describe("Gemini 모델 게이트웨이", () => {
     const gateway = new GeminiGateway({
       model: "gemini-test",
       generateContent: async (request: GenerateContentParameters) => {
+        expect(request.config?.systemInstruction).toBe(KNOWLEDGE_SYSTEM_PROMPT);
+        expect(request.config?.responseMimeType).toBe("application/json");
+        expect(JSON.stringify(request.contents)).toContain("신뢰할 수 없는 분석 자료");
         const parts = (request.contents as { parts: Array<Record<string, unknown>> })
           .parts;
         if (!parts.some((part) => part.inlineData)) {
@@ -93,13 +101,17 @@ describe("Gemini 모델 게이트웨이", () => {
   it("기존 주장과 후보의 의미 관계를 구조화한다", async () => {
     const gateway = new GeminiGateway({
       model: "gemini-test",
-      generateContent: async () =>
-        response(
+      generateContent: async (request) => {
+        expect(request.config?.systemInstruction).toBe(CLAIM_MATCH_SYSTEM_PROMPT);
+        expect(request.config?.responseMimeType).toBe("application/json");
+        expect(JSON.stringify(request.contents)).toContain("신뢰할 수 없는 분석 자료");
+        return response(
           JSON.stringify({
             relation: "SUPPORTS",
             targetClaimId: "claim-1",
           }),
-        ),
+        );
+      },
     });
 
     const result = await gateway.matchClaim(
