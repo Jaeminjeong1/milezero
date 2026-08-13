@@ -186,6 +186,46 @@ describe("MileZero 백엔드 파이프라인", () => {
     expect(await store.getPointBalance("driver-a")).toBe(15);
   });
 
+  it("피드백은 중복이어도 누락된 보상을 멱등하게 복구한다", async () => {
+    class FailOncePointStore extends InMemoryKnowledgeStore {
+      private failed = false;
+
+      override async awardPoints(
+        entry: Parameters<InMemoryKnowledgeStore["awardPoints"]>[0],
+      ) {
+        if (entry.reason === "CLAIM_VERIFIED" && !this.failed) {
+          this.failed = true;
+          throw new Error("temporary point failure");
+        }
+        return super.awardPoints(entry);
+      }
+    }
+
+    const store = new FailOncePointStore();
+    const { pipeline } = createPipeline(store);
+    const report = await pipeline.submitContribution({
+      placeId,
+      driverId: "driver-a",
+      vehicleType: "1TON",
+      contribution: { text: "1톤 차량은 후문으로 진입하세요." },
+    });
+    const feedback = {
+      claimId: report.claimIds[0],
+      driverId: "driver-b",
+      feedback: "CONFIRM" as const,
+    };
+
+    await expect(pipeline.recordFeedback(feedback)).rejects.toThrow(
+      "temporary point failure",
+    );
+    expect(await store.getPointBalance("driver-a")).toBe(10);
+
+    const retried = await pipeline.recordFeedback(feedback);
+    expect(retried.accepted).toBe(false);
+    expect(retried.status).toBe("VERIFIED");
+    expect(await store.getPointBalance("driver-a")).toBe(30);
+  });
+
   it("서로 다른 두 기사가 사실이 아니라고 하면 충돌 상태로 바꾼다", async () => {
     const { pipeline } = createPipeline();
     const report = await pipeline.submitContribution({

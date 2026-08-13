@@ -177,7 +177,7 @@ export class BackendPipeline {
     });
     const updated = await this.refreshClaim(claim.id);
 
-    if (accepted && input.feedback === "HELPFUL") {
+    if (input.feedback === "HELPFUL") {
       await this.dependencies.store.awardPoints({
         key: `claim:${claim.id}:helpful:${input.driverId}`,
         driverId: claim.reporterId,
@@ -197,7 +197,6 @@ export class BackendPipeline {
   private async refreshClaim(claimId: string) {
     const claim = await this.dependencies.store.getClaim(claimId);
     if (!claim) throw new Error("지식 후보를 찾을 수 없습니다.");
-    const previousStatus = claim.status;
     const evaluated = evaluateClaim(
       claim.reporterId,
       await this.dependencies.store.listEvidence(claim.id),
@@ -207,7 +206,7 @@ export class BackendPipeline {
       evaluated,
     );
 
-    if (previousStatus !== "VERIFIED" && updated.status === "VERIFIED") {
+    if (updated.status === "VERIFIED") {
       await this.dependencies.store.awardPoints({
         key: `claim:${claim.id}:verified`,
         driverId: claim.reporterId,
