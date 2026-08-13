@@ -127,12 +127,7 @@ h1, h2, p { margin: 0; }
 .points-growth { display: inline-flex; align-items: center; gap: 4px; color: var(--color-primary-700); font-size: 9px; font-weight: 800; }
 .points-growth svg { width: 14px; height: 14px; }
 
-.pending-card, .guide-card { padding: 18px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
-.pending-icon { width: 44px; height: 44px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 14px; color: var(--color-warning-fg); background: var(--color-warning-bg); }
-.pending-icon svg { width: 24px; height: 24px; }
-.pending-card h2 { margin-top: 4px; font-size: 20px; font-weight: 900; }
-.pending-card blockquote { margin: 14px 0 0; padding: 14px; border: 0; border-left: 3px solid var(--color-secondary-500); border-radius: 0 var(--radius-md) var(--radius-md) 0; background: var(--color-info-bg); font-size: 14px; font-weight: 900; line-height: 1.45; }
-.pending-card > p:last-of-type { margin-top: 10px; color: var(--text-tertiary); font-size: 10px; line-height: 1.55; }
+.guide-card { padding: 18px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
 .binary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
 .binary-actions button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: var(--radius-md); font-size: 12px; font-weight: 900; cursor: pointer; }
 .binary-actions button:disabled { opacity: .55; cursor: wait; }
@@ -142,6 +137,7 @@ h1, h2, p { margin: 0; }
 
 .guide-visual { position: relative; height: 104px; display: flex; align-items: center; justify-content: center; margin: -6px -6px 16px; border: 1px solid rgb(52 120 246 / 8%); border-radius: var(--radius-md); background: radial-gradient(circle at 20% 20%, rgb(52 120 246 / 12%), transparent 36%), linear-gradient(135deg, var(--color-info-bg), var(--color-neutral-50)); overflow: hidden; }
 .guide-visual::after { content: "검증된 마지막 구간"; position: absolute; right: 10px; bottom: 8px; color: var(--text-tertiary); font-size: 8px; font-weight: 800; letter-spacing: .02em; }
+.pending-delivery-card .guide-visual::after { content: "이전 기사 현장 정보"; }
 .building-node, .entrance-node { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 15px; }
 .building-node { color: var(--color-secondary-500); background: white; box-shadow: var(--shadow-md); }
 .entrance-node { color: var(--text-primary); background: var(--color-primary-500); box-shadow: var(--shadow-cta); }
@@ -151,6 +147,9 @@ h1, h2, p { margin: 0; }
 .guide-status span { display: inline-flex; align-items: center; gap: 5px; color: var(--color-success-fg); font-size: 10px; font-weight: 900; }
 .guide-status span svg { width: 15px; height: 15px; }
 .guide-status > strong { padding: 4px 7px; border-radius: var(--radius-full); color: var(--color-info-fg); background: var(--color-info-bg); font-size: 9px; }
+.pending-guide-status span { color: var(--color-warning-fg); }
+.pending-guide-status > strong { color: var(--color-warning-fg); background: var(--color-warning-bg); }
+.guide-policy.pending-guide-policy { color: var(--color-warning-fg); background: var(--color-warning-bg); }
 .guide-card > h2 { margin-top: 8px; font-size: 20px; font-weight: 900; letter-spacing: -.025em; }
 .guide-action-text { position: relative; display: grid; gap: 7px; margin-top: 14px; padding: 16px 16px 17px 18px; border: 1px solid rgb(52 120 246 / 10%); border-radius: var(--radius-md); background: linear-gradient(135deg, var(--color-info-bg), var(--bg-base)); overflow: hidden; }
 .guide-action-text::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--color-secondary-500); }

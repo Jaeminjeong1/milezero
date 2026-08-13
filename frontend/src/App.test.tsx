@@ -219,30 +219,14 @@ describe("MileZero 역할별 홈", () => {
     );
   });
 
-  it("후보 지식을 독립 확인하면 검증된 가이드로 전환한다", async () => {
-    const getKnowledge = vi
-      .fn<MileZeroApi["getKnowledge"]>()
-      .mockResolvedValueOnce({
-        items: [],
-        pendingConfirmation: {
-          claimId: "candidate-claim",
-          text: "1톤 차량은 후문으로 진입하세요",
-        },
-      })
-      .mockResolvedValueOnce({
-        items: [
-          {
-            claimId: "candidate-claim",
-            text: "1톤 차량은 후문으로 진입하세요",
-            type: "ENTRANCE_RECOMMENDATION",
-            vehicleType: "1TON",
-            timeCondition: null,
-            confidence: 0.65,
-            reportedAt: "2026-08-13T00:00:00.000Z",
-          },
-        ],
-        pendingConfirmation: null,
-      });
+  it("후보 지식의 사전 확인 화면을 건너뛰고 배송 완료 후 검증한다", async () => {
+    const getKnowledge = vi.fn<MileZeroApi["getKnowledge"]>(async () => ({
+      items: [],
+      pendingConfirmation: {
+        claimId: "candidate-claim",
+        text: "1톤 차량은 후문으로 진입하세요",
+      },
+    }));
     const api = createApi({
       getKnowledge,
       recordFeedback: vi.fn<MileZeroApi["recordFeedback"]>(async () => ({
@@ -259,12 +243,30 @@ describe("MileZero 역할별 홈", () => {
 
     await user.click(screen.getByRole("tab", { name: "도움 받는 기사" }));
 
-    expect(await screen.findByRole("heading", { name: "현재도 맞나요?" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "배송 중 현장 정보" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "현재도 맞나요?" })).not.toBeInTheDocument();
     expect(screen.getByText("1톤 차량은 후문으로 진입하세요")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "맞아요" }));
+    expect(api.recordFeedback).not.toHaveBeenCalled();
 
-    expect(await screen.findByRole("heading", { name: "출발 전 현장 가이드" })).toBeVisible();
-    expect(screen.getByText("1톤 차량은 후문으로 진입하세요")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "배송 완료했어요" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "안내받은 정보가 실제 현장과 같았나요?",
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "맞았어요" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "이 안내가 배송에 도움이 됐나요?",
+      }),
+    ).toBeVisible();
+    expect(api.recordFeedback).toHaveBeenCalledWith({
+      driverId: "demo-driver-b",
+      claimId: "candidate-claim",
+      feedback: "CONFIRM",
+    });
   });
 
   it("서버 데이터를 모두 지우고 두 기사 화면을 첫 상태로 되돌린다", async () => {

@@ -9,7 +9,6 @@ type FactFeedback = "CONFIRM" | "CONTRADICT";
 type UtilityFeedback = "HELPFUL" | "NOT_HELPFUL";
 type FailedFeedback =
   | { kind: "guide" }
-  | { kind: "pending"; feedback: FactFeedback }
   | { kind: "fact"; feedback: FactFeedback }
   | { kind: "utility"; feedback: UtilityFeedback };
 
@@ -64,57 +63,23 @@ export function useReceiverJourney(api: MileZeroApi) {
     }
   }, [api]);
 
-  const answerPending = useCallback(
-    async (feedback: FactFeedback) => {
-      const pending = knowledge?.pendingConfirmation;
-      if (!pending) return;
-      setFeedbackLoading(true);
-      setErrorMessage(undefined);
-      lastFailed.current = { kind: "pending", feedback };
-      try {
-        const result = await api.recordFeedback({
-          driverId: "demo-driver-b",
-          claimId: pending.claimId,
-          feedback,
-        });
-        if (result.status === "VERIFIED") {
-          const nextKnowledge = await api.getKnowledge({
-            driverId: "demo-driver-b",
-            placeId: "demo-office-tower",
-            vehicleType: "1TON",
-          });
-          setKnowledge(nextKnowledge);
-          setPhase(nextKnowledge.items[0] ? "guide_ready" : "pending_confirmation");
-        } else {
-          setKnowledge(undefined);
-          setPhase("feedback_complete");
-        }
-        lastFailed.current = undefined;
-      } catch (error) {
-        setErrorMessage(messageFrom(error));
-        setPhase("error");
-      } finally {
-        setFeedbackLoading(false);
-      }
-    },
-    [api, knowledge],
-  );
-
   const completeDelivery = useCallback(() => {
-    if (knowledge?.items[0]) setPhase("fact_feedback");
+    if (knowledge?.items[0] || knowledge?.pendingConfirmation) {
+      setPhase("fact_feedback");
+    }
   }, [knowledge]);
 
   const answerFact = useCallback(
     async (feedback: FactFeedback) => {
-      const guide = knowledge?.items[0];
-      if (!guide) return;
+      const activeClaim = knowledge?.items[0] ?? knowledge?.pendingConfirmation;
+      if (!activeClaim) return;
       setFeedbackLoading(true);
       setErrorMessage(undefined);
       lastFailed.current = { kind: "fact", feedback };
       try {
         await api.recordFeedback({
           driverId: "demo-driver-b",
-          claimId: guide.claimId,
+          claimId: activeClaim.claimId,
           feedback,
         });
         setFactFeedback(feedback);
@@ -132,15 +97,15 @@ export function useReceiverJourney(api: MileZeroApi) {
 
   const answerUtility = useCallback(
     async (feedback: UtilityFeedback) => {
-      const guide = knowledge?.items[0];
-      if (!guide) return;
+      const activeClaim = knowledge?.items[0] ?? knowledge?.pendingConfirmation;
+      if (!activeClaim) return;
       setFeedbackLoading(true);
       setErrorMessage(undefined);
       lastFailed.current = { kind: "utility", feedback };
       try {
         await api.recordFeedback({
           driverId: "demo-driver-b",
-          claimId: guide.claimId,
+          claimId: activeClaim.claimId,
           feedback,
         });
         setUtilityFeedback(feedback);
@@ -160,14 +125,12 @@ export function useReceiverJourney(api: MileZeroApi) {
     const failed = lastFailed.current;
     if (!failed || failed.kind === "guide") {
       await openGuide();
-    } else if (failed.kind === "pending") {
-      await answerPending(failed.feedback);
     } else if (failed.kind === "fact") {
       await answerFact(failed.feedback);
     } else {
       await answerUtility(failed.feedback);
     }
-  }, [answerFact, answerPending, answerUtility, openGuide]);
+  }, [answerFact, answerUtility, openGuide]);
 
   const completionMessage =
     factFeedback === "CONTRADICT"
@@ -181,13 +144,14 @@ export function useReceiverJourney(api: MileZeroApi) {
     knowledge,
     guide: knowledge?.items[0] ?? null,
     pendingConfirmation: knowledge?.pendingConfirmation ?? null,
+    activeKnowledgeText:
+      knowledge?.items[0]?.text ?? knowledge?.pendingConfirmation?.text ?? null,
     factFeedback,
     utilityFeedback,
     completionMessage,
     errorMessage,
     feedbackLoading,
     openGuide,
-    answerPending,
     completeDelivery,
     answerFact,
     answerUtility,

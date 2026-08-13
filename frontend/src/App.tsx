@@ -8,7 +8,7 @@ import { DeliveryCard } from "./components/DeliveryCard";
 import { ErrorSheet } from "./components/ErrorSheet";
 import { GuideCard } from "./components/GuideCard";
 import { GpsSimulationPanel } from "./components/GpsSimulationPanel";
-import { PendingKnowledgeCard } from "./components/PendingKnowledgeCard";
+import { PendingDeliveryCard } from "./components/PendingDeliveryCard";
 import { ProcessingSheet } from "./components/ProcessingSheet";
 import { QuestionSheet } from "./components/QuestionSheet";
 import { ReporterProgress } from "./components/ReporterProgress";
@@ -112,11 +112,11 @@ export function App({ api }: { api: MileZeroApi }) {
           </section>
         ) : receiver.phase === "pending_confirmation" && receiver.pendingConfirmation ? (
           <div className="role-content receiver-content">
-            <PendingKnowledgeCard
+            <ReceiverProgress phase={receiver.phase} />
+            <PendingDeliveryCard
               text={receiver.pendingConfirmation.text}
-              loading={receiver.feedbackLoading}
-              onConfirm={() => void receiver.answerPending("CONFIRM")}
-              onContradict={() => void receiver.answerPending("CONTRADICT")}
+              completed={false}
+              onCompleteDelivery={receiver.completeDelivery}
             />
           </div>
         ) : receiver.guide ? (
@@ -166,9 +166,9 @@ export function App({ api }: { api: MileZeroApi }) {
       (receiver.phase === "fact_feedback" ||
         receiver.phase === "utility_feedback" ||
         receiver.phase === "feedback_complete") &&
-      receiver.guide ? (
+      receiver.activeKnowledgeText ? (
         <ReceiverFeedbackSheet
-          guideText={receiver.guide.text}
+          guideText={receiver.activeKnowledgeText}
           phase={receiver.phase}
           loading={receiver.feedbackLoading}
           completionMessage={receiver.completionMessage}

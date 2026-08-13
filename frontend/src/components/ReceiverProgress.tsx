@@ -3,7 +3,7 @@ import { CheckCircle, Database, NavigationArrow, Truck } from "@phosphor-icons/r
 import type { ReceiverPhase } from "../hooks/useReceiverJourney";
 
 const steps = [
-  { label: "사전 가이드", icon: NavigationArrow },
+  { label: "배송 중", icon: NavigationArrow },
   { label: "배송 완료", icon: Truck },
   { label: "사실·도움 확인", icon: CheckCircle },
   { label: "지식 갱신", icon: Database },
