@@ -87,4 +87,61 @@ describe("MileZero 홈", () => {
       }),
     );
   });
+
+  it("다른 기사의 확인을 거쳐 가이드를 보여주고 도움 피드백을 받는다", async () => {
+    const api = createApi();
+    api.createQuestion = vi.fn<MileZeroApi["createQuestion"]>(async () => ({
+      shouldAsk: true,
+      category: "ENTRANCE",
+      question: "오늘 이 배송에서 불편한 점이 있었나요?",
+      choices: ["출입구를 찾기 어려웠어요", "불편하지 않았어요"],
+    }));
+    api.submitReport = vi.fn<MileZeroApi["submitReport"]>(async () => ({
+      reportId: "report-1",
+      claimIds: ["claim-1"],
+      claimStatuses: ["CANDIDATE"],
+      awardedPoints: 10,
+    }));
+    api.getKnowledge = vi
+      .fn<MileZeroApi["getKnowledge"]>()
+      .mockResolvedValueOnce({
+        items: [],
+        pendingConfirmation: {
+          claimId: "claim-1",
+          text: "1톤 차량은 후문으로 진입",
+        },
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            claimId: "claim-1",
+            text: "1톤 차량은 후문으로 진입",
+            confidence: 0.65,
+          },
+        ],
+        pendingConfirmation: null,
+      });
+    api.recordFeedback = vi
+      .fn<MileZeroApi["recordFeedback"]>()
+      .mockResolvedValueOnce({ accepted: true, status: "VERIFIED", confidence: 0.65, helpfulCount: 0 })
+      .mockResolvedValueOnce({ accepted: true, status: "VERIFIED", confidence: 0.75, helpfulCount: 1 });
+    const user = userEvent.setup();
+    render(<App api={api} autoDetectDelayMs={0} />);
+
+    await user.click(await screen.findByRole("button", { name: "출입구를 찾기 어려웠어요" }));
+    await user.type(screen.getByLabelText("다음 기사에게 알려줄 내용"), "후문으로 들어가세요.");
+    await user.click(screen.getByRole("button", { name: "경험 보내고 10P 받기" }));
+    await user.click(await screen.findByRole("button", { name: /다음 기사 화면에서 확인하기/ }));
+
+    expect(await screen.findByRole("heading", { name: "현재도 맞나요?" })).toBeVisible();
+    expect(screen.getByText("1톤 차량은 후문으로 진입")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "맞아요" }));
+
+    expect(await screen.findByRole("heading", { name: "검증된 현장 가이드" })).toBeVisible();
+    expect(screen.getByText("신뢰도 65%")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "도움됐어요" }));
+
+    expect(await screen.findByText("누적 35P")).toBeVisible();
+    expect(screen.getByText("제보자에게 5P가 추가됐어요")).toBeVisible();
+  });
 });

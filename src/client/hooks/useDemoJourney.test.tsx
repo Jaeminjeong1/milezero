@@ -130,4 +130,72 @@ describe("자동 감지와 제보 여정", () => {
     expect(result.current.errorMessage).toMatch(/8MB/);
     expect(api.submitReport).not.toHaveBeenCalled();
   });
+
+  it("독립 기사가 후보를 확인하면 다음 기사 가이드와 누적 35포인트로 이어진다", async () => {
+    vi.useFakeTimers();
+    const getKnowledge = vi
+      .fn<MileZeroApi["getKnowledge"]>()
+      .mockResolvedValueOnce({
+        items: [],
+        pendingConfirmation: {
+          claimId: "claim-1",
+          text: "1톤 차량은 후문으로 진입",
+        },
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            claimId: "claim-1",
+            text: "1톤 차량은 후문으로 진입",
+            confidence: 0.65,
+          },
+        ],
+        pendingConfirmation: null,
+      });
+    const recordFeedback = vi
+      .fn<MileZeroApi["recordFeedback"]>()
+      .mockResolvedValueOnce({
+        accepted: true,
+        status: "VERIFIED",
+        confidence: 0.65,
+        helpfulCount: 0,
+      })
+      .mockResolvedValueOnce({
+        accepted: true,
+        status: "VERIFIED",
+        confidence: 0.75,
+        helpfulCount: 1,
+      });
+    const { result } = renderHook(() =>
+      useDemoJourney(createApi({ getKnowledge, recordFeedback }), {
+        autoDetectDelayMs: 0,
+      }),
+    );
+    await act(async () => vi.runAllTimersAsync());
+    act(() => result.current.selectChoice("출입구를 찾기 어려웠어요"));
+    await act(async () =>
+      result.current.submitContribution({ text: "후문으로 들어가세요." }),
+    );
+
+    await act(async () => result.current.openNextDelivery());
+    expect(result.current.knowledge?.pendingConfirmation?.claimId).toBe("claim-1");
+    await act(async () => result.current.confirmPending("CONFIRM"));
+
+    expect(recordFeedback).toHaveBeenNthCalledWith(1, {
+      driverId: "demo-driver-b",
+      claimId: "claim-1",
+      feedback: "CONFIRM",
+    });
+    expect(result.current.knowledge?.items[0].text).toContain("후문");
+    expect(result.current.totalPoints).toBe(30);
+
+    await act(async () => result.current.rateGuide("HELPFUL"));
+    expect(recordFeedback).toHaveBeenNthCalledWith(2, {
+      driverId: "demo-driver-c",
+      claimId: "claim-1",
+      feedback: "HELPFUL",
+    });
+    expect(result.current.totalPoints).toBe(35);
+    expect(result.current.guideFeedback).toBe("HELPFUL");
+  });
 });

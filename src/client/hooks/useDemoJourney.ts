@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fileToMedia } from "../api";
 import type {
+  DeliveryKnowledge,
+  FeedbackType,
   MileZeroApi,
   QuestionPlan,
   ReportReceipt,
@@ -44,6 +46,10 @@ export function useDemoJourney(
   const [selectedChoice, setSelectedChoice] = useState<string>();
   const [receipt, setReceipt] = useState<ReportReceipt | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>();
+  const [knowledge, setKnowledge] = useState<DeliveryKnowledge>();
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [guideFeedback, setGuideFeedback] = useState<FeedbackType>();
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
   const [run, setRun] = useState(0);
   const idempotencyKey = useRef(createIdempotencyKey());
   const lastSubmission = useRef<Submission | undefined>(undefined);
@@ -74,6 +80,9 @@ export function useDemoJourney(
     setSelectedChoice(undefined);
     setReceipt(null);
     setErrorMessage(undefined);
+    setKnowledge(undefined);
+    setTotalPoints(0);
+    setGuideFeedback(undefined);
     lastSubmission.current = undefined;
     idempotencyKey.current = createIdempotencyKey();
     setRun((value) => value + 1);
@@ -111,6 +120,7 @@ export function useDemoJourney(
           },
         });
         setReceipt(nextReceipt);
+        setTotalPoints(nextReceipt.awardedPoints);
         lastSubmission.current = undefined;
         setPhase("rewarded");
       } catch (error) {
@@ -126,16 +136,97 @@ export function useDemoJourney(
     else replay();
   }, [replay, send]);
 
+  const openNextDelivery = useCallback(async () => {
+    setKnowledgeLoading(true);
+    setErrorMessage(undefined);
+    try {
+      setKnowledge(
+        await api.getKnowledge({
+          driverId: "demo-driver-b",
+          placeId: "demo-office-tower",
+          vehicleType: "1TON",
+        }),
+      );
+    } catch (error) {
+      setErrorMessage(messageFrom(error));
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  }, [api]);
+
+  const confirmPending = useCallback(
+    async (feedback: Extract<FeedbackType, "CONFIRM" | "CONTRADICT">) => {
+      const pending = knowledge?.pendingConfirmation;
+      if (!pending) return;
+      setKnowledgeLoading(true);
+      setErrorMessage(undefined);
+      try {
+        const result = await api.recordFeedback({
+          driverId: "demo-driver-b",
+          claimId: pending.claimId,
+          feedback,
+        });
+        if (result.status === "VERIFIED") {
+          setTotalPoints((points) => Math.max(points, 30));
+        }
+        setKnowledge(
+          await api.getKnowledge({
+            driverId: "demo-driver-c",
+            placeId: "demo-office-tower",
+            vehicleType: "1TON",
+          }),
+        );
+      } catch (error) {
+        setErrorMessage(messageFrom(error));
+      } finally {
+        setKnowledgeLoading(false);
+      }
+    },
+    [api, knowledge],
+  );
+
+  const rateGuide = useCallback(
+    async (feedback: Extract<FeedbackType, "HELPFUL" | "CONTRADICT">) => {
+      const guide = knowledge?.items[0];
+      if (!guide) return;
+      setKnowledgeLoading(true);
+      setErrorMessage(undefined);
+      try {
+        await api.recordFeedback({
+          driverId: "demo-driver-c",
+          claimId: guide.claimId,
+          feedback,
+        });
+        setGuideFeedback(feedback);
+        if (feedback === "HELPFUL") {
+          setTotalPoints((points) => Math.max(points, 35));
+        }
+      } catch (error) {
+        setErrorMessage(messageFrom(error));
+      } finally {
+        setKnowledgeLoading(false);
+      }
+    },
+    [api, knowledge],
+  );
+
   return {
     phase,
     question,
     selectedChoice,
     receipt,
     errorMessage,
+    knowledge,
+    knowledgeLoading,
+    totalPoints,
+    guideFeedback,
     replay,
     selectChoice,
     submitContribution: send,
     retrySubmission,
+    openNextDelivery,
+    confirmPending,
+    rateGuide,
   };
 }
 

@@ -74,6 +74,56 @@ h1, h2, p { margin: 0; }
 .empty-next h2 { margin-top: 18px; font-size: 18px; font-weight: 900; }
 .empty-next p { max-width: 280px; margin-top: 9px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
 .secondary-button { min-height: 48px; margin-top: 20px; padding: 0 18px; border: 0; border-radius: var(--radius-md); background: var(--bg-subtle); font-size: 13px; font-weight: 800; cursor: pointer; }
+.loading-next { display: grid; justify-items: center; padding: 140px 20px; text-align: center; }
+.loading-next h2 { margin-top: 14px; font-size: 15px; }
+.loading-ring { width: 36px; height: 36px; border: 4px solid var(--border-default); border-top-color: var(--color-secondary-500); border-radius: 50%; animation: spin .8s linear infinite; }
+.next-delivery-content { display: grid; gap: 12px; }
+.next-heading { padding: 0 4px 8px; }
+.next-heading h2 { margin-top: 12px; font-size: 23px; font-weight: 900; line-height: 1.32; letter-spacing: -.035em; }
+.points-summary { display: flex; align-items: center; justify-content: space-between; padding: 12px 13px; border-radius: var(--radius-md); background: var(--color-primary-50); }
+.points-summary > div { display: flex; align-items: center; gap: 9px; }
+.points-summary > div > svg { width: 34px; height: 34px; padding: 7px; border-radius: 11px; color: var(--text-primary); background: var(--color-primary-500); }
+.points-summary span span { display: grid; }
+.points-summary small { display: block; color: var(--text-tertiary); font-size: 9px; }
+.points-summary strong { display: block; margin-top: 1px; font-size: 15px; font-weight: 900; }
+.points-growth { display: inline-flex; align-items: center; gap: 4px; color: var(--color-primary-700); font-size: 9px; font-weight: 800; }
+.points-growth svg { width: 14px; height: 14px; }
+
+.pending-card, .guide-card { padding: 17px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
+.pending-icon { width: 44px; height: 44px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 14px; color: var(--color-warning-fg); background: var(--color-warning-bg); }
+.pending-icon svg { width: 24px; height: 24px; }
+.pending-card h2 { margin-top: 4px; font-size: 20px; font-weight: 900; }
+.pending-card blockquote { margin: 14px 0 0; padding: 14px; border: 0; border-left: 3px solid var(--color-secondary-500); border-radius: 0 var(--radius-md) var(--radius-md) 0; background: var(--color-info-bg); font-size: 14px; font-weight: 900; line-height: 1.45; }
+.pending-card > p:last-of-type { margin-top: 10px; color: var(--text-tertiary); font-size: 10px; line-height: 1.55; }
+.binary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.binary-actions button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: var(--radius-md); font-size: 12px; font-weight: 900; cursor: pointer; }
+.binary-actions button:disabled { opacity: .55; cursor: wait; }
+.binary-actions svg { width: 17px; height: 17px; }
+.confirm-button { color: var(--text-primary); background: var(--color-primary-500); }
+.subtle-button { color: var(--text-secondary); background: var(--bg-subtle); }
+
+.guide-visual { height: 88px; display: flex; align-items: center; justify-content: center; margin: -5px -5px 14px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--color-info-bg), var(--color-neutral-50)); overflow: hidden; }
+.building-node, .entrance-node { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 15px; }
+.building-node { color: var(--color-secondary-500); background: white; box-shadow: var(--shadow-md); }
+.entrance-node { color: var(--text-primary); background: var(--color-primary-500); box-shadow: var(--shadow-cta); }
+.building-node svg, .entrance-node svg { width: 24px; height: 24px; }
+.route-dash { width: 90px; height: 2px; margin: 0 8px; background: repeating-linear-gradient(90deg, var(--color-secondary-500) 0 7px, transparent 7px 13px); }
+.guide-status { display: flex; align-items: center; justify-content: space-between; }
+.guide-status span { display: inline-flex; align-items: center; gap: 5px; color: var(--color-success-fg); font-size: 10px; font-weight: 800; }
+.guide-status span svg { width: 15px; height: 15px; }
+.guide-status > strong { padding: 4px 7px; border-radius: var(--radius-full); color: var(--color-info-fg); background: var(--color-info-bg); font-size: 9px; }
+.guide-card > h2 { margin-top: 6px; font-size: 19px; font-weight: 900; }
+.guide-action-text { display: grid; gap: 4px; margin-top: 13px; padding: 13px; border-radius: var(--radius-md); background: var(--bg-subtle); }
+.guide-action-text small { color: var(--text-tertiary); font-size: 9px; font-weight: 800; }
+.guide-action-text strong { font-size: 14px; font-weight: 900; }
+.guide-meta { display: flex; gap: 6px; margin-top: 9px; }
+.guide-meta span { padding: 4px 7px; border-radius: var(--radius-full); color: var(--text-tertiary); background: var(--bg-subtle); font-size: 8px; font-weight: 800; }
+.guide-feedback { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--border-default); }
+.guide-feedback > p { font-size: 11px; font-weight: 800; text-align: center; }
+.feedback-success, .feedback-warning { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; margin-top: 15px; padding: 10px; border-radius: var(--radius-md); font-size: 11px; font-weight: 900; }
+.feedback-success { color: var(--color-success-fg); background: var(--color-success-bg); }
+.feedback-warning { color: var(--color-warning-fg); background: var(--color-warning-bg); }
+.feedback-success svg, .feedback-warning svg { width: 18px; height: 18px; }
 
 .sheet-backdrop { position: absolute; z-index: 40; inset: 0; display: flex; align-items: flex-end; background: rgb(25 25 25 / 48%); animation: backdrop-in var(--duration-base) ease-out; }
 .bottom-sheet { width: 100%; max-height: 88%; overflow: auto; padding: 12px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--bg-elevated); box-shadow: var(--shadow-sheet); animation: sheet-up var(--duration-slow) var(--ease-out); }
@@ -148,6 +198,7 @@ h1, h2, p { margin: 0; }
 @keyframes processing-float { 50% { transform: translateY(-5px) rotate(3deg); } }
 @keyframes step-activate { 35%, 100% { opacity: 1; background: var(--bg-base); box-shadow: inset 0 0 0 1px var(--border-default); } }
 @keyframes check-show { to { opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 960px) {
   html { background: var(--bg-base); }

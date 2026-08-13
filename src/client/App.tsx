@@ -7,6 +7,9 @@ import { DeliveryCard } from "./components/DeliveryCard";
 import { ContributionSheet } from "./components/ContributionSheet";
 import { ErrorSheet } from "./components/ErrorSheet";
 import { ProcessingSheet } from "./components/ProcessingSheet";
+import { GuideCard } from "./components/GuideCard";
+import { PendingKnowledgeCard } from "./components/PendingKnowledgeCard";
+import { PointsSummary } from "./components/PointsSummary";
 import { QuestionSheet } from "./components/QuestionSheet";
 import { RewardSheet } from "./components/RewardSheet";
 import { StatusCard } from "./components/StatusCard";
@@ -23,9 +26,14 @@ export function App({
   const [tab, setTab] = useState<DeliveryTab>("today");
   const journey = useDemoJourney(api, { autoDetectDelayMs });
 
+  const changeTab = (nextTab: DeliveryTab) => {
+    setTab(nextTab);
+    if (nextTab === "next") void journey.openNextDelivery();
+  };
+
   return (
     <AppShell>
-      <TopTabs active={tab} onChange={setTab} />
+      <TopTabs active={tab} onChange={changeTab} />
       <header className="app-header">
         <div>
           <p className="brand-kicker">MOVE SMARTER</p>
@@ -45,6 +53,32 @@ export function App({
             <DeliveryCard />
             <StatusCard onReplay={journey.replay} />
           </>
+        ) : journey.knowledgeLoading && !journey.knowledge ? (
+          <section className="loading-next" role="status"><span className="loading-ring" /><h2>현장 지식을 불러오고 있어요</h2></section>
+        ) : journey.knowledge?.pendingConfirmation ? (
+          <div className="next-delivery-content">
+            <div className="next-heading"><span className="hero-tag">새로운 배송 · 기사 B</span><h2>센트럴시티 타워<br />현장 정보를 확인해 주세요.</h2></div>
+            <PointsSummary points={journey.totalPoints} />
+            <PendingKnowledgeCard
+              text={journey.knowledge.pendingConfirmation.text}
+              loading={journey.knowledgeLoading}
+              onConfirm={() => void journey.confirmPending("CONFIRM")}
+              onContradict={() => void journey.confirmPending("CONTRADICT")}
+            />
+          </div>
+        ) : journey.knowledge?.items[0] ? (
+          <div className="next-delivery-content">
+            <div className="next-heading"><span className="hero-tag">다음 배송 · 기사 C</span><h2>도착 전에 필요한 정보만<br />먼저 확인하세요.</h2></div>
+            <PointsSummary points={journey.totalPoints} />
+            <GuideCard
+              text={journey.knowledge.items[0].text}
+              confidence={journey.knowledge.items[0].confidence}
+              feedback={journey.guideFeedback as "HELPFUL" | "CONTRADICT" | undefined}
+              loading={journey.knowledgeLoading}
+              onHelpful={() => void journey.rateGuide("HELPFUL")}
+              onChanged={() => void journey.rateGuide("CONTRADICT")}
+            />
+          </div>
         ) : (
           <section className="empty-next">
             <ArrowClockwise weight="bold" aria-hidden="true" />
@@ -61,8 +95,8 @@ export function App({
         <ContributionSheet choice={journey.selectedChoice} onSubmit={journey.submitContribution} />
       ) : null}
       {journey.phase === "submitting" ? <ProcessingSheet /> : null}
-      {journey.phase === "rewarded" && journey.receipt ? (
-        <RewardSheet points={journey.receipt.awardedPoints} onNext={() => setTab("next")} />
+      {tab === "today" && journey.phase === "rewarded" && journey.receipt ? (
+        <RewardSheet points={journey.receipt.awardedPoints} onNext={() => changeTab("next")} />
       ) : null}
       {journey.phase === "error" && journey.errorMessage ? (
         <ErrorSheet message={journey.errorMessage} onRetry={() => void journey.retrySubmission()} />
