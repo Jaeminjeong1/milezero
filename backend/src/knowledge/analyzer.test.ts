@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { Claim } from "@/domain/contracts";
+
 import { analyzeContribution } from "./analyzer";
 
 const selectedAnswers = [
@@ -11,6 +13,103 @@ const selectedAnswers = [
 ];
 
 describe("멀티모달 지식 분석", () => {
+  it.each([
+    [
+      "정차할 곳을 찾기 어려웠어요",
+      "UNLOADING_LOCATION",
+      "배송지 인근 정차 위치를 찾는 데 시간이 걸릴 수 있음",
+    ],
+    [
+      "하역 공간이 부족했어요",
+      "UNLOADING_LOCATION",
+      "배송지에서 하역 공간을 찾거나 이용하기 어려울 수 있음",
+    ],
+    [
+      "출입구를 찾기 어려웠어요",
+      "ENTRANCE_RECOMMENDATION",
+      "배송지 출입구를 찾는 데 시간이 걸릴 수 있음",
+    ],
+    [
+      "엘리베이터 이용이 어려웠어요",
+      "ELEVATOR_GUIDE",
+      "배송지에서 이용할 엘리베이터를 찾기 어려울 수 있음",
+    ],
+    [
+      "건물 안에서 길을 찾기 어려웠어요",
+      "INTERNAL_ROUTE",
+      "건물 내부 이동 경로를 찾는 데 시간이 걸릴 수 있음",
+    ],
+    [
+      "출입 절차를 알기 어려웠어요",
+      "ACCESS_PROCEDURE",
+      "배송지 출입 절차를 확인하는 데 시간이 걸릴 수 있음",
+    ],
+    [
+      "배송지 시설 때문에 시간이 더 걸렸어요",
+      "ACCESS_PROCEDURE",
+      "배송지 시설 또는 운영 절차를 미리 확인할 필요가 있음",
+    ],
+  ] as const)(
+    "모델 결과가 비면 '%s' 선택을 개인정보 없는 후보 지식으로 보완한다",
+    async (choice: string, type: Claim["type"], value: string) => {
+      const result = await analyzeContribution(
+        {
+          answers: [
+            {
+              questionId: "friction_type",
+              question: "오늘 이 배송에서 불편한 점이 있었나요?",
+              choice,
+            },
+          ],
+        },
+        async () => ({
+          sanitizedSummary: "추출할 수 있는 지식이 없습니다.",
+          removedPiiTypes: [],
+          claims: [],
+        }),
+      );
+
+      expect(result.claims).toEqual([
+        {
+          type,
+          value,
+          vehicleType: "ALL",
+          timeCondition: null,
+        },
+      ]);
+      expect(result.sanitizedSummary).toBe(value);
+    },
+  );
+
+  it("후속 질문의 안내 항목을 첫 질문의 불편 유형보다 우선한다", async () => {
+    const result = await analyzeContribution(
+      {
+        answers: [
+          {
+            questionId: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choice: "정차할 곳을 찾기 어려웠어요",
+          },
+          {
+            questionId: "actionable_detail",
+            question: "다음 기사에게 가장 먼저 알려주고 싶은 점은 무엇인가요?",
+            choice: "추천 출입구",
+          },
+        ],
+      },
+      async () => ({
+        sanitizedSummary: "추출할 수 있는 지식이 없습니다.",
+        removedPiiTypes: [],
+        claims: [],
+      }),
+    );
+
+    expect(result.claims[0]).toMatchObject({
+      type: "ENTRANCE_RECOMMENDATION",
+      value: "배송지 출입구를 찾는 데 시간이 걸릴 수 있음",
+    });
+  });
+
   it("추가 설명 없이 선택형 답변만 분석하고 개인정보를 제거한다", async () => {
     let modelAnswers: unknown;
     await analyzeContribution(

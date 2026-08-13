@@ -95,6 +95,54 @@ describe("MileZero 백엔드 파이프라인", () => {
     expect(JSON.stringify(store.snapshot())).not.toContain("010-1234-5678");
   });
 
+  it("모델이 지식을 비워도 비중립 선택 답변을 보수적인 후보 지식으로 저장한다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => ({
+        sanitizedSummary: "추출할 수 있는 지식이 없습니다.",
+        removedPiiTypes: [],
+        claims: [],
+      }),
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+
+    const receipt = await pipeline.submitContribution({
+      idempotencyKey: "submission-choice-fallback",
+      placeId,
+      driverId: "driver-a",
+      vehicleType: "1TON",
+      contribution: {
+        answers: [
+          {
+            questionId: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choice: "정차할 곳을 찾기 어려웠어요",
+          },
+          {
+            questionId: "actionable_detail",
+            question: "다음 기사에게 가장 먼저 알려주고 싶은 점은 무엇인가요?",
+            choice: "추천 정차 위치",
+          },
+        ],
+      },
+    });
+
+    expect(receipt).toMatchObject({
+      awardedPoints: 10,
+      claimStatuses: ["CANDIDATE"],
+    });
+    expect(store.snapshot().claims).toEqual([
+      expect.objectContaining({
+        type: "UNLOADING_LOCATION",
+        value: "배송지 인근 정차 위치를 찾는 데 시간이 걸릴 수 있음",
+        vehicleType: "1TON",
+        status: "CANDIDATE",
+      }),
+    ]);
+  });
+
   it("추출할 운영 지식이 없는 응답에는 저장과 포인트를 수행하지 않는다", async () => {
     const store = new InMemoryKnowledgeStore();
     const pipeline = new BackendPipeline({
