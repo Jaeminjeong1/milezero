@@ -36,7 +36,7 @@ type MigrationClient = {
     text: string,
     values?: unknown[],
   ): Promise<{ rows: T[] }>;
-  release(): void;
+  release(error?: Error): void;
 };
 
 type MigrationPool = {
@@ -64,6 +64,8 @@ export async function runMigrations(
 ): Promise<void> {
   const client = await pool.connect();
   let locked = false;
+  let primaryError: unknown;
+  let connectionError: unknown;
 
   try {
     await client.query("select pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
@@ -89,14 +91,32 @@ export async function runMigrations(
         );
         await client.query("commit");
       } catch (error) {
-        await client.query("rollback");
+        try {
+          await client.query("rollback");
+        } catch (rollbackError) {
+          connectionError = rollbackError;
+        }
         throw error;
       }
     }
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    if (locked) {
-      await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]);
+    try {
+      if (locked) {
+        await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]);
+      }
+    } catch (unlockError) {
+      connectionError = unlockError;
+      if (primaryError === undefined) throw unlockError;
+    } finally {
+      client.release(asError(connectionError));
     }
-    client.release();
   }
+}
+
+function asError(value: unknown): Error | undefined {
+  if (value === undefined) return undefined;
+  return value instanceof Error ? value : new Error(String(value));
 }

@@ -68,7 +68,6 @@ create index points_ledger_driver_idx on points_ledger(driver_id);
 create or replace function mz_create_report(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -95,7 +94,6 @@ $$;
 create or replace function mz_create_claim(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -126,7 +124,6 @@ create or replace function mz_find_claims(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at desc), '[]'::jsonb)
@@ -153,7 +150,6 @@ create or replace function mz_get_claim(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select to_jsonb(c)
@@ -164,7 +160,6 @@ $$;
 create or replace function mz_update_claim(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare
@@ -189,7 +184,6 @@ $$;
 create or replace function mz_add_evidence(payload jsonb)
 returns boolean
 language plpgsql
-security definer
 set search_path = public
 as $$
 begin
@@ -211,7 +205,6 @@ create or replace function mz_list_evidence(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select coalesce(jsonb_agg(to_jsonb(e) order by e.created_at), '[]'::jsonb)
@@ -222,7 +215,6 @@ $$;
 create or replace function mz_award_points(payload jsonb)
 returns boolean
 language plpgsql
-security definer
 set search_path = public
 as $$
 begin
@@ -244,7 +236,6 @@ create or replace function mz_point_balance(payload jsonb)
 returns integer
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select coalesce(sum(points), 0)::integer
@@ -256,7 +247,6 @@ create or replace function mz_contribution_receipt(target_report_id uuid)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select jsonb_build_object(
@@ -282,7 +272,6 @@ create or replace function mz_get_contribution_receipt(payload jsonb)
 returns jsonb
 language sql
 stable
-security definer
 set search_path = public
 as $$
   select mz_contribution_receipt(r.id)
@@ -294,7 +283,6 @@ $$;
 create or replace function mz_commit_contribution(payload jsonb)
 returns jsonb
 language plpgsql
-security definer
 set search_path = public
 as $$
 declare

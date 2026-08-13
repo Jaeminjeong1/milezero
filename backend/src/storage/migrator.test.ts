@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { PGlite } from "@electric-sql/pglite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   loadMigrations,
@@ -95,6 +95,51 @@ describe("PostgreSQL migration runner", () => {
     },
     30_000,
   );
+
+  it("unlock이 실패해도 client를 반드시 반환한다", async () => {
+    const release = vi.fn();
+    const client = {
+      query: async <T extends Record<string, unknown>>(text: string) => {
+        if (text.includes("pg_advisory_unlock")) {
+          throw new Error("unlock failed");
+        }
+        return { rows: [] as T[] };
+      },
+      release,
+    };
+
+    await expect(
+      runMigrations({ connect: async () => client }, []),
+    ).rejects.toThrow("unlock failed");
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("rollback과 unlock이 실패해도 최초 migration 오류를 보존한다", async () => {
+    const release = vi.fn();
+    const client = {
+      query: async <T extends Record<string, unknown>>(text: string) => {
+        if (text.includes("select exists")) {
+          return { rows: [{ applied: false }] as unknown as T[] };
+        }
+        if (text === "broken migration") {
+          throw new Error("migration failed");
+        }
+        if (text === "rollback") throw new Error("rollback failed");
+        if (text.includes("pg_advisory_unlock")) {
+          throw new Error("unlock failed");
+        }
+        return { rows: [] as T[] };
+      },
+      release,
+    };
+
+    await expect(
+      runMigrations({ connect: async () => client }, [
+        { id: "001_broken", sql: "broken migration" },
+      ]),
+    ).rejects.toThrow("migration failed");
+    expect(release).toHaveBeenCalledOnce();
+  });
 });
 
 function pglitePool(database: PGlite) {

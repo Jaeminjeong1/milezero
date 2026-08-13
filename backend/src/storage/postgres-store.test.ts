@@ -1,7 +1,10 @@
+import { EventEmitter } from "node:events";
+
 import { describe, expect, it, vi } from "vitest";
 
 import {
   PostgresKnowledgeStore,
+  attachPostgresPoolErrorHandler,
   createPostgresKnowledgeStoreFromEnv,
 } from "./postgres-store";
 
@@ -23,6 +26,19 @@ const claimRow = {
 };
 
 describe("PostgreSQL 지식 저장소", () => {
+  it("idle connection 오류를 처리해 EventEmitter 오류로 프로세스가 종료되지 않게 한다", () => {
+    const failure = new Error("connection terminated");
+    const report = vi.fn();
+    const pool = Object.assign(new EventEmitter(), {
+      query: async () => ({ rows: [] }),
+    });
+
+    attachPostgresPoolErrorHandler(pool, report);
+    pool.emit("error", failure);
+
+    expect(report).toHaveBeenCalledWith(failure);
+  });
+
   it("비식별 report와 claim DB 행을 도메인 객체로 변환한다", async () => {
     const query = vi.fn(async (sql: string) => {
       if (sql.includes("mz_create_report")) {

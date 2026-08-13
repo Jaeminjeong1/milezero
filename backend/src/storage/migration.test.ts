@@ -120,6 +120,14 @@ describe("Railway PostgreSQL 영속 저장 스키마", () => {
         ),
       ),
     );
+    const functions = await database.query<{
+      proname: string;
+      prosecdef: boolean;
+    }>(
+      "select proname, prosecdef from pg_proc where pronamespace = 'public'::regnamespace and proname like 'mz_%'",
+    );
+    expect(functions.rows).not.toHaveLength(0);
+    expect(functions.rows.every((row) => row.prosecdef === false)).toBe(true);
     await database.close();
   }, 30_000);
 

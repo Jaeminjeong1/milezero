@@ -28,6 +28,10 @@ type QueryClient = {
   ): Promise<{ rows: Array<{ data: unknown }> }>;
 };
 
+type PoolErrorEmitter = {
+  on(event: "error", listener: (error: Error) => void): unknown;
+};
+
 const RpcSql = {
   mz_get_contribution_receipt:
     "select public.mz_get_contribution_receipt($1::jsonb) as data",
@@ -305,5 +309,16 @@ export function createPostgresKnowledgeStoreFromEnv(
 ): PostgresKnowledgeStore {
   const connectionString = env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL이 필요합니다.");
-  return new PostgresKnowledgeStore(new Pool({ connectionString }));
+  const pool = attachPostgresPoolErrorHandler(new Pool({ connectionString }));
+  return new PostgresKnowledgeStore(pool);
+}
+
+export function attachPostgresPoolErrorHandler<T extends PoolErrorEmitter>(
+  pool: T,
+  report: (error: Error) => void = (error) => {
+    console.error("PostgreSQL idle connection error:", error.message);
+  },
+): T {
+  pool.on("error", report);
+  return pool;
 }
