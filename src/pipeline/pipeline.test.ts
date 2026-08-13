@@ -134,7 +134,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       driverId: "driver-b",
       feedback: "CONFIRM",
     });
-    expect(store.getPointBalance("driver-a")).toBe(30);
+    expect(await store.getPointBalance("driver-a")).toBe(30);
   });
 
   it("도움됨은 보상하지만 사실 확인을 대신하지 않는다", async () => {
@@ -153,7 +153,7 @@ describe("MileZero 백엔드 파이프라인", () => {
     });
 
     expect(result.status).toBe("CANDIDATE");
-    expect(store.getPointBalance("driver-a")).toBe(15);
+    expect(await store.getPointBalance("driver-a")).toBe(15);
   });
 
   it("서로 다른 두 기사가 사실이 아니라고 하면 충돌 상태로 바꾼다", async () => {

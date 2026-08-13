@@ -115,7 +115,7 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
     return true;
   }
 
-  getPointBalance(driverId: string): number {
+  async getPointBalance(driverId: string): Promise<number> {
     return this.points
       .filter((item) => item.driverId === driverId)
       .reduce((total, item) => total + item.points, 0);

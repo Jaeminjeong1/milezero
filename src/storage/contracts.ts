@@ -67,5 +67,5 @@ export interface KnowledgeStore {
   }): Promise<boolean>;
   listEvidence(claimId: string): Promise<StoredEvidence[]>;
   awardPoints(entry: PointEntry): Promise<boolean>;
-  getPointBalance(driverId: string): number;
+  getPointBalance(driverId: string): Promise<number>;
 }
