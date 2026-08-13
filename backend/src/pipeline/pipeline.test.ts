@@ -5,6 +5,13 @@ import { InMemoryKnowledgeStore } from "@/storage/in-memory-store";
 import { BackendPipeline } from "./pipeline";
 
 const placeId = "place-mz-tower";
+const selectedAnswers = [
+  {
+    questionId: "friction_type",
+    question: "오늘 이 배송에서 불편한 점이 있었나요?",
+    choice: "출입구를 찾기 어려웠어요",
+  },
+];
 
 function createPipeline(store = new InMemoryKnowledgeStore()) {
   return {
@@ -14,8 +21,18 @@ function createPipeline(store = new InMemoryKnowledgeStore()) {
       generateQuestion: async () => ({
         shouldAsk: true,
         category: "PARKING",
-        question: "차량을 세우거나 짐을 내릴 때 불편한 점이 있었나요?",
-        choices: ["정차 공간이 부족했어요", "불편하지 않았어요"],
+        questions: [
+          {
+            id: "friction_type",
+            question: "차량을 세우거나 짐을 내릴 때 불편한 점이 있었나요?",
+            choices: [
+              "정차 공간이 부족했어요",
+              "하역 공간이 부족했어요",
+              "출입구가 멀었어요",
+              "불편하지 않았어요",
+            ],
+          },
+        ],
       }),
       generateKnowledge: async () => ({
         sanitizedSummary: "1톤 차량은 후문으로 진입해야 합니다.",
@@ -57,7 +74,7 @@ describe("MileZero 백엔드 파이프라인", () => {
     ]);
 
     expect(result?.category).toBe("PARKING");
-    expect(result?.choices).toContain("불편하지 않았어요");
+    expect(result?.questions[0]?.choices).toContain("불편하지 않았어요");
   });
 
   it("제보 즉시 기본 포인트를 주고 후보 지식만 저장한다", async () => {
@@ -68,7 +85,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       driverId: "driver-a",
       vehicleType: "1TON",
       contribution: {
-        answerChoice: "정차 위치를 찾기 어려웠어요",
+        answers: selectedAnswers,
         text: "010-1234-5678로 연락하고 1톤 차량은 후문으로 진입하세요.",
       },
     });
@@ -85,8 +102,18 @@ describe("MileZero 백엔드 파이프라인", () => {
       generateQuestion: async () => ({
         shouldAsk: true,
         category: "OTHER",
-        question: "오늘 이 배송에서 불편한 점이 있었나요?",
-        choices: ["다른 기사에게 알려줄 점이 있어요", "불편하지 않았어요"],
+        questions: [
+          {
+            id: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choices: [
+              "다른 기사에게 알려줄 점이 있어요",
+              "정차가 어려웠어요",
+              "내부 이동이 어려웠어요",
+              "불편하지 않았어요",
+            ],
+          },
+        ],
       }),
       generateKnowledge: async () => ({
         sanitizedSummary: "불편하지 않았습니다.",
@@ -102,7 +129,9 @@ describe("MileZero 백엔드 파이프라인", () => {
         placeId,
         driverId: "driver-a",
         vehicleType: "1TON",
-        contribution: { answerChoice: "불편하지 않았어요" },
+        contribution: {
+          answers: [{ ...selectedAnswers[0], choice: "불편하지 않았어요" }],
+        },
       }),
     ).rejects.toThrow(/저장할 배송지 운영 지식/);
     expect(await store.getPointBalance("driver-a")).toBe(0);
@@ -116,7 +145,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
-      contribution: { text: "1톤 차량은 후문으로 진입하세요." },
+      contribution: { answers: selectedAnswers, text: "1톤 차량은 후문으로 진입하세요." },
     });
 
     const before = await pipeline.getDeliveryKnowledge({
@@ -151,7 +180,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
-      contribution: { text: "1톤 차량은 후문으로 진입하세요." },
+      contribution: { answers: selectedAnswers, text: "1톤 차량은 후문으로 진입하세요." },
     });
     const claimId = report.claimIds[0];
 
@@ -178,7 +207,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
-      contribution: { text: "1톤 차량은 후문으로 진입하세요." },
+      contribution: { answers: selectedAnswers, text: "1톤 차량은 후문으로 진입하세요." },
     });
 
     const result = await pipeline.recordFeedback({
@@ -213,7 +242,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
-      contribution: { text: "1톤 차량은 후문으로 진입하세요." },
+      contribution: { answers: selectedAnswers, text: "1톤 차량은 후문으로 진입하세요." },
     });
     const feedback = {
       claimId: report.claimIds[0],
@@ -239,7 +268,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
-      contribution: { text: "1톤 차량은 후문으로 진입하세요." },
+      contribution: { answers: selectedAnswers, text: "1톤 차량은 후문으로 진입하세요." },
     });
 
     await pipeline.recordFeedback({
@@ -284,7 +313,7 @@ describe("MileZero 백엔드 파이프라인", () => {
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON" as const,
-      contribution: { text: "후문으로 진입합니다." },
+      contribution: { answers: selectedAnswers, text: "후문으로 진입합니다." },
     };
 
     const first = await pipeline.submitContribution(input);

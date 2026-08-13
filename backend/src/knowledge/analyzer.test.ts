@@ -2,11 +2,57 @@ import { describe, expect, it } from "vitest";
 
 import { analyzeContribution } from "./analyzer";
 
+const selectedAnswers = [
+  {
+    questionId: "friction_type",
+    question: "오늘 이 배송에서 불편한 점이 있었나요?",
+    choice: "출입구를 찾기 어려웠어요",
+  },
+];
+
 describe("멀티모달 지식 분석", () => {
+  it("추가 설명 없이 선택형 답변만 분석하고 개인정보를 제거한다", async () => {
+    let modelAnswers: unknown;
+    await analyzeContribution(
+      {
+        answers: [
+          {
+            questionId: "friction_type",
+            question: "010-1234-5678 어떤 불편이 있었나요?",
+            choice: "출입구를 찾기 어려웠어요",
+          },
+        ],
+      },
+      async (input) => {
+        modelAnswers = input.answers;
+        return {
+          sanitizedSummary: "후문 진입이 필요합니다.",
+          removedPiiTypes: [],
+          claims: [
+            {
+              type: "ENTRANCE_RECOMMENDATION",
+              value: "후문 진입",
+              vehicleType: "ALL",
+              timeCondition: null,
+            },
+          ],
+        };
+      },
+    );
+
+    expect(modelAnswers).toEqual([
+      {
+        questionId: "friction_type",
+        question: "[전화번호 제거] 어떤 불편이 있었나요?",
+        choice: "출입구를 찾기 어려웠어요",
+      },
+    ]);
+  });
+
   it("모델 입력 전에 텍스트 개인정보를 제거하고 모델 출력도 다시 제거한다", async () => {
     const result = await analyzeContribution(
       {
-        answerChoice: "정차 위치를 찾기 어려웠어요",
+        answers: selectedAnswers,
         text: "010-1234-5678로 연락하면 되고 1톤차는 후문으로 가세요.",
       },
       async (input) => {
@@ -37,7 +83,7 @@ describe("멀티모달 지식 분석", () => {
     const photo = new Uint8Array([1, 2, 3, 4]);
     const result = await analyzeContribution(
       {
-        answerChoice: "사진으로 설명할게요",
+        answers: selectedAnswers,
         media: { mimeType: "image/jpeg", bytes: photo },
       },
       async (input) => {
@@ -67,6 +113,7 @@ describe("멀티모달 지식 분석", () => {
     await expect(
       analyzeContribution(
         {
+          answers: selectedAnswers,
           media: {
             mimeType: "application/pdf",
             bytes: new Uint8Array([1]),
@@ -82,6 +129,7 @@ describe("멀티모달 지식 분석", () => {
   it("미디어 전처리에서 제거한 EXIF를 분석 결과에 합친다", async () => {
     const result = await analyzeContribution(
       {
+        answers: selectedAnswers,
         media: {
           mimeType: "image/jpeg",
           bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]),

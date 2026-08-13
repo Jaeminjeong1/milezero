@@ -19,13 +19,19 @@ describe("서버 의존성 구성", () => {
       driverId: "demo-driver-a",
       vehicleType: "1TON",
       contribution: {
-        answerChoice: "출입구를 찾기 어려웠어요",
+        answers: [
+          {
+            questionId: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choice: "출입구를 찾기 어려웠어요",
+          },
+        ],
         text: "010-1234-5678로 연락했고 후문으로 들어갔어요.",
       },
     });
 
     expect(dependencies.mode).toBe("demo");
-    expect(question?.question).toContain("불편한 점");
+    expect(question?.questions[0]?.question).toContain("불편한 점");
     expect(receipt.awardedPoints).toBe(10);
     expect(JSON.stringify(dependencies.inspect?.())).not.toContain("010-1234-5678");
     await expect(dependencies.readiness()).resolves.toBeDefined();

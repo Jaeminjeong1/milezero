@@ -11,14 +11,20 @@ function createDemoPipeline(store: InMemoryKnowledgeStore) {
     generateQuestion: async ({ context }) => ({
       shouldAsk: true,
       category: context,
-      question:
-        context === "ACCESS"
-          ? "배송지에 들어가거나 이동할 때 불편한 점이 있었나요?"
-          : "오늘 이 배송에서 불편한 점이 있었나요?",
-      choices: [
-        "출입구를 찾기 어려웠어요",
-        "정차할 곳을 찾기 어려웠어요",
-        "불편하지 않았어요",
+      questions: [
+        {
+          id: "friction_type",
+          question:
+            context === "ACCESS"
+              ? "배송지에 들어가거나 이동할 때 불편한 점이 있었나요?"
+              : "오늘 이 배송에서 불편한 점이 있었나요?",
+          choices: [
+            "출입구를 찾기 어려웠어요",
+            "정차할 곳을 찾기 어려웠어요",
+            "내부 이동이 어려웠어요",
+            "불편하지 않았어요",
+          ],
+        },
       ],
     }),
     generateKnowledge: async (input: AnalysisModelInput) => {
@@ -86,6 +92,13 @@ export async function runDemoScenario() {
         placeId: "demo-office-tower",
         vehicleType: "1TON",
         contribution: {
+          answers: [
+            {
+              questionId: "friction_type",
+              question: "오늘 이 배송에서 불편한 점이 있었나요?",
+              choice: "출입구를 찾기 어려웠어요",
+            },
+          ],
           text: "010-1234-5678로 연락했고, 1톤 차량은 후문으로 진입해야 편했습니다.",
         },
       },

@@ -8,7 +8,7 @@ import { sanitizeText } from "@/privacy/sanitizer";
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
 
 export type ContributionInput = {
-  answerChoice?: string;
+  answers: QuestionAnswer[];
   text?: string;
   media?: {
     mimeType: string;
@@ -17,8 +17,14 @@ export type ContributionInput = {
   };
 };
 
+export type QuestionAnswer = {
+  questionId: string;
+  question: string;
+  choice: string;
+};
+
 export type AnalysisModelInput = {
-  answerChoice?: string;
+  answers: QuestionAnswer[];
   sanitizedText: string;
   media?: {
     mimeType: string;
@@ -50,9 +56,26 @@ export async function analyzeContribution(
   }
 
   const preSanitized = sanitizeText(input.text ?? "");
+  const sanitizedAnswers = input.answers.map((answer) => {
+    const questionId = sanitizeText(answer.questionId);
+    const question = sanitizeText(answer.question);
+    const choice = sanitizeText(answer.choice);
+    return {
+      answer: {
+        questionId: questionId.text,
+        question: question.text,
+        choice: choice.text,
+      },
+      removedPiiTypes: [
+        ...questionId.removedPiiTypes,
+        ...question.removedPiiTypes,
+        ...choice.removedPiiTypes,
+      ],
+    };
+  });
   const modelResult = KnowledgeAnalysisSchema.parse(
     await generate({
-      answerChoice: input.answerChoice,
+      answers: sanitizedAnswers.map(({ answer }) => answer),
       sanitizedText: preSanitized.text,
       media: input.media
         ? {
@@ -74,6 +97,7 @@ export async function analyzeContribution(
     sanitizedSummary: sanitizedSummary.text,
     removedPiiTypes: mergePiiTypes([
       preSanitized.removedPiiTypes,
+      ...sanitizedAnswers.map(({ removedPiiTypes }) => removedPiiTypes),
       input.media?.removedPiiTypes ?? [],
       modelResult.removedPiiTypes,
       sanitizedSummary.removedPiiTypes,

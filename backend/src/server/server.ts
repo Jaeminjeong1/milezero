@@ -33,6 +33,13 @@ const MediaSchema = z
     dataBase64: z.string().min(1).max(11_184_812),
   })
   .strict();
+const QuestionAnswerSchema = z
+  .object({
+    questionId: z.string().trim().min(1).max(40),
+    question: z.string().trim().min(1).max(120),
+    choice: z.string().trim().min(1).max(120),
+  })
+  .strict();
 const ReportBodySchema = z
   .object({
     idempotencyKey: z.string().trim().min(8).max(100),
@@ -40,15 +47,11 @@ const ReportBodySchema = z
     vehicleType: VehicleTypeSchema,
     contribution: z
       .object({
-        answerChoice: z.string().max(100).optional(),
+        answers: z.array(QuestionAnswerSchema).min(1).max(2),
         text: z.string().max(2_000).optional(),
         media: MediaSchema.optional(),
       })
-      .strict()
-      .refine(
-        (input) => input.answerChoice || input.text || input.media,
-        "응답 내용이 필요합니다.",
-      ),
+      .strict(),
   })
   .strict();
 const KnowledgeQuerySchema = z.object({
@@ -127,7 +130,7 @@ export function buildServer(
       driverId,
       vehicleType: body.vehicleType,
       contribution: {
-        answerChoice: body.contribution.answerChoice,
+        answers: body.contribution.answers,
         text: body.contribution.text,
         media: body.contribution.media
           ? prepareMedia(body.contribution.media)

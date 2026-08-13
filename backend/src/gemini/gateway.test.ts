@@ -76,7 +76,13 @@ describe("Gemini 모델 게이트웨이", () => {
     });
 
     const result = await gateway.generateKnowledge({
-      answerChoice: "사진으로 설명할게요",
+      answers: [
+        {
+          questionId: "friction_type",
+          question: "오늘 이 배송에서 불편한 점이 있었나요?",
+          choice: "사진으로 설명할게요",
+        },
+      ],
       sanitizedText: "",
       media: { mimeType: "image/jpeg", dataBase64: "AQIDBA==" },
     });
@@ -170,7 +176,16 @@ describe("Gemini 모델 게이트웨이", () => {
     });
 
     await expect(
-      gateway.generateKnowledge({ sanitizedText: "후문으로 진입합니다." }),
+      gateway.generateKnowledge({
+        answers: [
+          {
+            questionId: "friction_type",
+            question: "오늘 이 배송에서 불편한 점이 있었나요?",
+            choice: "출입구를 찾기 어려웠어요",
+          },
+        ],
+        sanitizedText: "후문으로 진입합니다.",
+      }),
     ).rejects.toBeInstanceOf(GeminiUnavailableError);
   });
 

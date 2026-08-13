@@ -35,7 +35,7 @@ export function createDemoGateway() {
     input: AnalysisModelInput,
   ): Promise<KnowledgeAnalysis> => {
     const actionable =
-      input.answerChoice !== "불편하지 않았어요" ||
+      input.answers.some((answer) => answer.choice !== "불편하지 않았어요") ||
       input.sanitizedText.trim().length > 0;
     return {
       sanitizedSummary: actionable

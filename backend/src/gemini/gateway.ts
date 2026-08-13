@@ -84,7 +84,7 @@ export class GeminiGateway {
           "수령인 이름·연락처·이메일·동호수·출입 비밀번호·얼굴·차량번호·EXIF는 제거하고 removedPiiTypes에 기록하세요. " +
           "사실을 검증됐다고 단정하지 말고 원자 단위 후보 주장으로 만드세요.\n" +
           JSON.stringify({
-            answerChoice: input.answerChoice,
+            answers: input.answers,
             sanitizedText: input.sanitizedText,
           }),
       },

@@ -7,8 +7,10 @@ describe("심사 데모 백엔드 E2E", () => {
     const result = await runDemoScenario();
 
     expect(result.question.statusCode).toBe(200);
-    expect(result.question.body.question).toContain("불편한 점");
-    expect(result.question.body.choices).toContain("불편하지 않았어요");
+    expect(result.question.body.questions[0].question).toContain("불편한 점");
+    expect(result.question.body.questions[0].choices).toContain(
+      "불편하지 않았어요",
+    );
     expect(result.report.statusCode).toBe(201);
     expect(result.report.body.awardedPoints).toBe(10);
     expect(result.pending.body.pendingConfirmation.text).toContain("후문");

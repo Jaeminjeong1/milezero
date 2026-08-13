@@ -9,6 +9,14 @@ import { GeminiUnavailableError } from "@/gemini/gateway";
 
 import { buildServer } from "./server";
 
+const selectedAnswers = [
+  {
+    questionId: "friction_type",
+    question: "오늘 이 배송에서 불편한 점이 있었나요?",
+    choice: "출입구를 찾기 어려웠어요",
+  },
+];
+
 function createTestServer() {
   const store = new InMemoryKnowledgeStore();
   const pipeline = new BackendPipeline({
@@ -16,8 +24,18 @@ function createTestServer() {
     generateQuestion: async () => ({
       shouldAsk: true,
       category: "PARKING",
-      question: "정차하거나 하역할 때 불편한 점이 있었나요?",
-      choices: ["정차 위치를 찾기 어려웠어요", "불편하지 않았어요"],
+      questions: [
+        {
+          id: "friction_type",
+          question: "정차하거나 하역할 때 불편한 점이 있었나요?",
+          choices: [
+            "정차 위치를 찾기 어려웠어요",
+            "하역 공간이 부족했어요",
+            "출입구가 멀었어요",
+            "불편하지 않았어요",
+          ],
+        },
+      ],
     }),
     generateKnowledge: async () => ({
       sanitizedSummary: "1톤 차량은 후문으로 진입합니다.",
@@ -49,6 +67,84 @@ afterEach(async () => {
 });
 
 describe("백엔드 HTTP API", () => {
+  it("1~2개의 선택형 답변만으로 제보를 접수한다", async () => {
+    const { server } = createTestServer();
+    servers.push(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/reports",
+      headers: { "x-driver-id": "driver-a" },
+      payload: {
+        idempotencyKey: "answers-only-report",
+        placeId: "place-1",
+        vehicleType: "1TON",
+        contribution: {
+          answers: [
+            {
+              questionId: "friction_type",
+              question: "오늘 이 배송에서 불편한 점이 있었나요?",
+              choice: "출입구를 찾기 어려웠어요",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().awardedPoints).toBe(10);
+  });
+
+  it.each([
+    { name: "답변 없음", answers: [] },
+    {
+      name: "답변 3개",
+      answers: Array.from({ length: 3 }, (_, index) => ({
+        questionId: `question-${index}`,
+        question: "어떤 불편이 있었나요?",
+        choice: "출입구를 찾기 어려웠어요",
+      })),
+    },
+    {
+      name: "빈 질문 ID",
+      answers: [
+        {
+          questionId: " ",
+          question: "어떤 불편이 있었나요?",
+          choice: "출입구를 찾기 어려웠어요",
+        },
+      ],
+    },
+    {
+      name: "너무 긴 답변",
+      answers: [
+        {
+          questionId: "friction_type",
+          question: "어떤 불편이 있었나요?",
+          choice: "가".repeat(121),
+        },
+      ],
+    },
+  ])(
+    "잘못된 선택형 답변을 거부한다: $name",
+    async ({ answers }: { answers: Array<Record<string, string>> }) => {
+      const { server } = createTestServer();
+      servers.push(server);
+      const response = await server.inject({
+        method: "POST",
+        url: "/v1/reports",
+        headers: { "x-driver-id": "driver-a" },
+        payload: {
+          idempotencyKey: "invalid-answers-report",
+          placeId: "place-1",
+          vehicleType: "1TON",
+          contribution: { answers },
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    },
+  );
+
   it("원본 GPS가 아닌 집계 특징으로 질문을 생성한다", async () => {
     const { server } = createTestServer();
     servers.push(server);
@@ -67,7 +163,7 @@ describe("백엔드 HTTP API", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().question).toContain("불편한 점");
+    expect(response.json().questions[0].question).toContain("불편한 점");
   });
 
   it("위도·경도가 포함된 원본 GPS 요청을 거부한다", async () => {
@@ -103,6 +199,7 @@ describe("백엔드 HTTP API", () => {
         placeId: "place-1",
         vehicleType: "1TON",
         contribution: {
+          answers: selectedAnswers,
           text: "010-1234-5678로 연락하고 1톤 차량은 후문으로 진입하세요.",
         },
       },
@@ -145,7 +242,7 @@ describe("백엔드 HTTP API", () => {
         idempotencyKey: "server-report-unauthorized",
         placeId: "place-1",
         vehicleType: "1TON",
-        contribution: { text: "후문으로 진입합니다." },
+        contribution: { answers: selectedAnswers, text: "후문으로 진입합니다." },
       },
     });
 
@@ -173,7 +270,7 @@ describe("백엔드 HTTP API", () => {
         idempotencyKey: "server-gemini-error",
         placeId: "place-1",
         vehicleType: "1TON",
-        contribution: { text: "후문으로 진입합니다." },
+        contribution: { answers: selectedAnswers, text: "후문으로 진입합니다." },
       },
     });
 
@@ -207,7 +304,14 @@ describe("백엔드 HTTP API", () => {
         idempotencyKey: "server-no-knowledge",
         placeId: "place-1",
         vehicleType: "1TON",
-        contribution: { answerChoice: "불편하지 않았어요" },
+        contribution: {
+          answers: [
+            {
+              ...selectedAnswers[0],
+              choice: "불편하지 않았어요",
+            },
+          ],
+        },
       },
     });
 
@@ -226,6 +330,7 @@ describe("백엔드 HTTP API", () => {
         placeId: "place-1",
         vehicleType: "1TON",
         contribution: {
+          answers: selectedAnswers,
           media: { mimeType: "image/jpeg", dataBase64: "not@base64" },
         },
       },
