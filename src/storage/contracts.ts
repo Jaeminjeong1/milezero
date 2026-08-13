@@ -38,7 +38,38 @@ export type PointEntry = {
   reason: "REPORT_CREATED" | "CLAIM_VERIFIED" | "GUIDE_HELPFUL";
 };
 
+export type ContributionReceipt = {
+  reportId: string;
+  claimIds: string[];
+  claimStatuses: ClaimStatus[];
+  awardedPoints: 10;
+};
+
+export type ContributionOperation =
+  | { kind: "NEW"; claim: Claim }
+  | {
+      kind: "EVIDENCE";
+      claimId: string;
+      feedback: Exclude<FeedbackType, "HELPFUL">;
+    };
+
+export type CommitContributionInput = {
+  idempotencyKey: string;
+  placeId: string;
+  driverId: string;
+  sanitizedSummary: string;
+  removedPiiTypes: PiiType[];
+  operations: ContributionOperation[];
+};
+
 export interface KnowledgeStore {
+  getContributionReceipt(
+    idempotencyKey: string,
+    driverId: string,
+  ): Promise<ContributionReceipt | null>;
+  commitContribution(
+    input: CommitContributionInput,
+  ): Promise<ContributionReceipt>;
   createReport(
     report: Omit<StoredReport, "id" | "createdAt">,
   ): Promise<StoredReport>;

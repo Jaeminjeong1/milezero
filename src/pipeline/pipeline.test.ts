@@ -63,6 +63,7 @@ describe("MileZero 백엔드 파이프라인", () => {
   it("제보 즉시 기본 포인트를 주고 후보 지식만 저장한다", async () => {
     const { pipeline, store } = createPipeline();
     const receipt = await pipeline.submitContribution({
+      idempotencyKey: "submission-basic",
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
@@ -97,6 +98,7 @@ describe("MileZero 백엔드 파이프라인", () => {
 
     await expect(
       pipeline.submitContribution({
+        idempotencyKey: "submission-empty",
         placeId,
         driverId: "driver-a",
         vehicleType: "1TON",
@@ -110,6 +112,7 @@ describe("MileZero 백엔드 파이프라인", () => {
   it("후보는 독립 확인 카드로만 보여주고 확인 후 정식 가이드로 승격한다", async () => {
     const { pipeline } = createPipeline();
     await pipeline.submitContribution({
+      idempotencyKey: "submission-guide",
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
@@ -144,6 +147,7 @@ describe("MileZero 백엔드 파이프라인", () => {
   it("제보자는 자기 지식을 검증할 수 없고 독립 검증 때 추가 포인트를 받는다", async () => {
     const { pipeline, store } = createPipeline();
     const report = await pipeline.submitContribution({
+      idempotencyKey: "submission-self-verify",
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
@@ -170,6 +174,7 @@ describe("MileZero 백엔드 파이프라인", () => {
   it("도움됨은 보상하지만 사실 확인을 대신하지 않는다", async () => {
     const { pipeline, store } = createPipeline();
     const report = await pipeline.submitContribution({
+      idempotencyKey: "submission-helpful",
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
@@ -204,6 +209,7 @@ describe("MileZero 백엔드 파이프라인", () => {
     const store = new FailOncePointStore();
     const { pipeline } = createPipeline(store);
     const report = await pipeline.submitContribution({
+      idempotencyKey: "submission-retry",
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
@@ -229,6 +235,7 @@ describe("MileZero 백엔드 파이프라인", () => {
   it("서로 다른 두 기사가 사실이 아니라고 하면 충돌 상태로 바꾼다", async () => {
     const { pipeline } = createPipeline();
     const report = await pipeline.submitContribution({
+      idempotencyKey: "submission-conflict",
       placeId,
       driverId: "driver-a",
       vehicleType: "1TON",
@@ -247,5 +254,45 @@ describe("MileZero 백엔드 파이프라인", () => {
     });
 
     expect(result.status).toBe("CONFLICT");
+  });
+
+  it("같은 멱등 키 재전송은 Gemini를 다시 호출하거나 포인트를 중복 지급하지 않는다", async () => {
+    const store = new InMemoryKnowledgeStore();
+    let analysisCalls = 0;
+    const pipeline = new BackendPipeline({
+      store,
+      generateQuestion: async () => null,
+      generateKnowledge: async () => {
+        analysisCalls += 1;
+        return {
+          sanitizedSummary: "1톤 차량은 후문으로 진입합니다.",
+          removedPiiTypes: [],
+          claims: [
+            {
+              type: "ENTRANCE_RECOMMENDATION",
+              value: "1톤 차량은 후문으로 진입",
+              vehicleType: "1TON",
+              timeCondition: null,
+            },
+          ],
+        };
+      },
+      matchClaim: async () => ({ relation: "NEW", targetClaimId: null }),
+    });
+    const input = {
+      idempotencyKey: "submission-duplicate",
+      placeId,
+      driverId: "driver-a",
+      vehicleType: "1TON" as const,
+      contribution: { text: "후문으로 진입합니다." },
+    };
+
+    const first = await pipeline.submitContribution(input);
+    const second = await pipeline.submitContribution(input);
+
+    expect(second).toEqual(first);
+    expect(analysisCalls).toBe(1);
+    expect(await store.getPointBalance("driver-a")).toBe(10);
+    expect(store.snapshot().reports).toHaveLength(1);
   });
 });

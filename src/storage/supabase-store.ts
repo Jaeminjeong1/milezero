@@ -12,6 +12,8 @@ import {
 } from "@/validation/evaluator";
 
 import type {
+  CommitContributionInput,
+  ContributionReceipt,
   KnowledgeStore,
   PointEntry,
   StoredClaim,
@@ -59,8 +61,61 @@ const EvidenceRowSchema = z.object({
   created_at: z.string(),
 });
 
+const ContributionReceiptSchema = z.object({
+  reportId: z.string(),
+  claimIds: z.array(z.string()),
+  claimStatuses: z.array(z.enum(["CANDIDATE", "VERIFIED", "CONFLICT"])),
+  awardedPoints: z.literal(10),
+});
+
 export class SupabaseKnowledgeStore implements KnowledgeStore {
   constructor(private readonly client: RpcClient) {}
+
+  async getContributionReceipt(
+    idempotencyKey: string,
+    driverId: string,
+  ): Promise<ContributionReceipt | null> {
+    const data = await this.call("mz_get_contribution_receipt", {
+      payload: {
+        idempotency_key: idempotencyKey,
+        driver_id: driverId,
+      },
+    });
+    return data === null ? null : ContributionReceiptSchema.parse(data);
+  }
+
+  async commitContribution(
+    input: CommitContributionInput,
+  ): Promise<ContributionReceipt> {
+    return ContributionReceiptSchema.parse(
+      await this.call("mz_commit_contribution", {
+        payload: {
+          idempotency_key: input.idempotencyKey,
+          place_id: input.placeId,
+          driver_id: input.driverId,
+          sanitized_summary: input.sanitizedSummary,
+          removed_pii_types: input.removedPiiTypes,
+          operations: input.operations.map((operation) =>
+            operation.kind === "NEW"
+              ? {
+                  kind: operation.kind,
+                  claim: {
+                    claim_type: operation.claim.type,
+                    value: operation.claim.value,
+                    vehicle_type: operation.claim.vehicleType,
+                    time_condition: operation.claim.timeCondition,
+                  },
+                }
+              : {
+                  kind: operation.kind,
+                  claim_id: operation.claimId,
+                  feedback: operation.feedback,
+                },
+          ),
+        },
+      }),
+    );
+  }
 
   async createReport(
     report: Omit<StoredReport, "id" | "createdAt">,

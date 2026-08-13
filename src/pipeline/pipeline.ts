@@ -12,6 +12,7 @@ import {
   type QuestionGenerator,
 } from "@/questions/planner";
 import type {
+  ContributionOperation,
   KnowledgeStore,
   StoredClaim,
 } from "@/storage/contracts";
@@ -53,11 +54,18 @@ export class BackendPipeline {
   }
 
   async submitContribution(input: {
+    idempotencyKey: string;
     placeId: string;
     driverId: string;
     vehicleType: Claim["vehicleType"];
     contribution: ContributionInput;
   }) {
+    const previous = await this.dependencies.store.getContributionReceipt(
+      input.idempotencyKey,
+      input.driverId,
+    );
+    if (previous) return previous;
+
     const analysis = await analyzeContribution(
       input.contribution,
       this.dependencies.generateKnowledge,
@@ -65,20 +73,8 @@ export class BackendPipeline {
     if (analysis.claims.length === 0) {
       throw new Error("저장할 배송지 운영 지식이 없습니다.");
     }
-    const report = await this.dependencies.store.createReport({
-      placeId: input.placeId,
-      driverId: input.driverId,
-      sanitizedSummary: analysis.sanitizedSummary,
-      removedPiiTypes: analysis.removedPiiTypes,
-    });
-    await this.dependencies.store.awardPoints({
-      key: `report:${report.id}:created`,
-      driverId: input.driverId,
-      points: 10,
-      reason: "REPORT_CREATED",
-    });
-
-    const storedClaims: StoredClaim[] = [];
+    const operations: ContributionOperation[] = [];
+    const evidenceClaimIds: string[] = [];
     for (const candidate of analysis.claims) {
       const existing = await this.dependencies.store.findClaims({
         placeId: input.placeId,
@@ -93,39 +89,48 @@ export class BackendPipeline {
 
       if (target && match.relation !== "NEW") {
         if (target.reporterId !== input.driverId) {
-          await this.dependencies.store.addEvidence({
+          operations.push({
+            kind: "EVIDENCE",
             claimId: target.id,
-            driverId: input.driverId,
-            feedback:
-              match.relation === "SUPPORTS" ? "CONFIRM" : "CONTRADICT",
-            source: "REPORT",
+            feedback: match.relation === "SUPPORTS" ? "CONFIRM" : "CONTRADICT",
           });
-          storedClaims.push(await this.refreshClaim(target.id));
+          evidenceClaimIds.push(target.id);
         } else {
-          storedClaims.push(target);
+          operations.push({ kind: "EVIDENCE", claimId: target.id, feedback: "CONFIRM" });
         }
         continue;
       }
 
-      storedClaims.push(
-        await this.dependencies.store.createClaim({
+      operations.push({
+        kind: "NEW",
+        claim: {
           ...candidate,
           vehicleType:
             candidate.vehicleType === "ALL"
               ? input.vehicleType
               : candidate.vehicleType,
-          reportId: report.id,
-          placeId: input.placeId,
-          reporterId: input.driverId,
-        }),
-      );
+        },
+      });
     }
 
+    const receipt = await this.dependencies.store.commitContribution({
+      idempotencyKey: input.idempotencyKey,
+      placeId: input.placeId,
+      driverId: input.driverId,
+      sanitizedSummary: analysis.sanitizedSummary,
+      removedPiiTypes: analysis.removedPiiTypes,
+      operations,
+    });
+    const refreshed = new Map<string, StoredClaim>();
+    for (const claimId of new Set(evidenceClaimIds)) {
+      refreshed.set(claimId, await this.refreshClaim(claimId));
+    }
     return {
-      reportId: report.id,
-      claimIds: storedClaims.map((claim) => claim.id),
-      claimStatuses: storedClaims.map((claim) => claim.status),
-      awardedPoints: 10,
+      ...receipt,
+      claimStatuses: receipt.claimIds.map(
+        (claimId, index) =>
+          refreshed.get(claimId)?.status ?? receipt.claimStatuses[index],
+      ),
     };
   }
 

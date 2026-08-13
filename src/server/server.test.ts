@@ -89,6 +89,7 @@ describe("백엔드 HTTP API", () => {
       url: "/v1/reports",
       headers: { "x-driver-id": "driver-a" },
       payload: {
+        idempotencyKey: "server-report-1",
         placeId: "place-1",
         vehicleType: "1TON",
         contribution: {
@@ -131,6 +132,7 @@ describe("백엔드 HTTP API", () => {
       method: "POST",
       url: "/v1/reports",
       payload: {
+        idempotencyKey: "server-report-unauthorized",
         placeId: "place-1",
         vehicleType: "1TON",
         contribution: { text: "후문으로 진입합니다." },

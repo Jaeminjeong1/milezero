@@ -26,6 +26,7 @@ const MediaSchema = z
   .strict();
 const ReportBodySchema = z
   .object({
+    idempotencyKey: z.string().trim().min(8).max(100),
     placeId: z.string().trim().min(1).max(200),
     vehicleType: VehicleTypeSchema,
     contribution: z
@@ -71,6 +72,7 @@ export function buildServer(pipeline: BackendPipeline) {
     const driverId = parseDriverId(request.headers["x-driver-id"]);
     const body = ReportBodySchema.parse(request.body);
     const receipt = await pipeline.submitContribution({
+      idempotencyKey: body.idempotencyKey,
       placeId: body.placeId,
       driverId,
       vehicleType: body.vehicleType,

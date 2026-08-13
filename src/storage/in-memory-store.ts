@@ -2,6 +2,8 @@ import type { Claim } from "@/domain/contracts";
 import type { ClaimStatus, FeedbackType } from "@/validation/evaluator";
 
 import type {
+  CommitContributionInput,
+  ContributionReceipt,
   KnowledgeStore,
   PointEntry,
   StoredClaim,
@@ -16,6 +18,89 @@ export class InMemoryKnowledgeStore implements KnowledgeStore {
   private claims: StoredClaim[] = [];
   private evidence: StoredEvidence[] = [];
   private points: PointEntry[] = [];
+  private contributionReceipts = new Map<string, ContributionReceipt>();
+
+  async getContributionReceipt(
+    idempotencyKey: string,
+    driverId: string,
+  ): Promise<ContributionReceipt | null> {
+    const stored = this.contributionReceipts.get(
+      `${driverId}:${idempotencyKey}`,
+    );
+    return stored ? structuredClone(stored) : null;
+  }
+
+  async commitContribution(
+    input: CommitContributionInput,
+  ): Promise<ContributionReceipt> {
+    const receiptKey = `${input.driverId}:${input.idempotencyKey}`;
+    const existing = this.contributionReceipts.get(receiptKey);
+    if (existing) return structuredClone(existing);
+
+    const checkpoint = structuredClone({
+      reportSequence: this.reportSequence,
+      claimSequence: this.claimSequence,
+      reports: this.reports,
+      claims: this.claims,
+      evidence: this.evidence,
+      points: this.points,
+    });
+    try {
+      const report = await this.createReport({
+        placeId: input.placeId,
+        driverId: input.driverId,
+        sanitizedSummary: input.sanitizedSummary,
+        removedPiiTypes: input.removedPiiTypes,
+      });
+      const claimIds: string[] = [];
+      for (const operation of input.operations) {
+        if (operation.kind === "NEW") {
+          const claim = await this.createClaim({
+            ...operation.claim,
+            reportId: report.id,
+            placeId: input.placeId,
+            reporterId: input.driverId,
+          });
+          claimIds.push(claim.id);
+        } else {
+          const target = await this.getClaim(operation.claimId);
+          if (!target) throw new Error("지식 후보를 찾을 수 없습니다.");
+          claimIds.push(target.id);
+          if (target.reporterId !== input.driverId) {
+            await this.addEvidence({
+              claimId: target.id,
+              driverId: input.driverId,
+              feedback: operation.feedback,
+              source: "REPORT",
+            });
+          }
+        }
+      }
+      await this.awardPoints({
+        key: `report:${report.id}:created`,
+        driverId: input.driverId,
+        points: 10,
+        reason: "REPORT_CREATED",
+      });
+      const claims = await Promise.all(claimIds.map((id) => this.getClaim(id)));
+      const receipt: ContributionReceipt = {
+        reportId: report.id,
+        claimIds,
+        claimStatuses: claims.map((claim) => claim!.status),
+        awardedPoints: 10,
+      };
+      this.contributionReceipts.set(receiptKey, receipt);
+      return structuredClone(receipt);
+    } catch (error) {
+      this.reportSequence = checkpoint.reportSequence;
+      this.claimSequence = checkpoint.claimSequence;
+      this.reports = checkpoint.reports;
+      this.claims = checkpoint.claims;
+      this.evidence = checkpoint.evidence;
+      this.points = checkpoint.points;
+      throw error;
+    }
+  }
 
   async createReport(
     report: Omit<StoredReport, "id" | "createdAt">,
