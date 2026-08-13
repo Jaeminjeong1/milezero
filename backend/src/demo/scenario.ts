@@ -70,18 +70,22 @@ export async function runDemoScenario() {
   });
 
   try {
+    const features = {
+      dwellSeconds: 420,
+      stopCount: 3,
+      travelMeters: 90,
+      displacementMeters: 20,
+      acceptedSampleCount: 8,
+    };
+    const friction = await request(server, {
+      method: "POST",
+      url: "/v1/friction/evaluate",
+      payload: { features },
+    });
     const question = await request(server, {
       method: "POST",
       url: "/v1/questions",
-      payload: {
-        features: {
-          dwellSeconds: 420,
-          stopCount: 3,
-          travelMeters: 90,
-          displacementMeters: 20,
-          acceptedSampleCount: 8,
-        },
-      },
+      payload: { features },
     });
     const report = await request(server, {
       method: "POST",
@@ -128,6 +132,7 @@ export async function runDemoScenario() {
     });
 
     return {
+      friction,
       question,
       report,
       pending,

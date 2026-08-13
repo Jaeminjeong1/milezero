@@ -6,6 +6,11 @@ describe("심사 데모 백엔드 E2E", () => {
   it("마찰 질문부터 제보·독립 검증·다음 기사 안내·도움 피드백까지 연결한다", async () => {
     const result = await runDemoScenario();
 
+    expect(result.friction.statusCode).toBe(200);
+    expect(result.friction.body).toMatchObject({
+      detected: true,
+      questionContext: "PARKING",
+    });
     expect(result.question.statusCode).toBe(200);
     expect(result.question.body.questions[0].question).toContain("불편한 점");
     expect(result.question.body.questions[0].choices).toContain(

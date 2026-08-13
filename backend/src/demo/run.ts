@@ -2,6 +2,7 @@ import { runDemoScenario } from "./scenario";
 
 const result = await runDemoScenario();
 const expectedStatuses = [
+  result.friction.statusCode,
   result.question.statusCode,
   result.report.statusCode,
   result.pending.statusCode,
@@ -18,7 +19,8 @@ console.log(
   JSON.stringify(
     {
       scenario: "합성 데이터 기반 심사 데모",
-      question: result.question.body.question,
+      frictionDecision: result.friction.body,
+      questions: result.question.body.questions,
       initialPoints: result.report.body.awardedPoints,
       candidate: result.pending.body.pendingConfirmation,
       verifiedStatus: result.confirm.body.status,

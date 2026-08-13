@@ -13,13 +13,11 @@ Node.js 22와 pnpm 11.19를 사용한다. 전역 `pnpm` 설치는 필요하지 �
 
 ```bash
 corepack pnpm install
-cp .env.example .env
-corepack pnpm dev
 ```
 
 이 방식은 `/usr/local/bin` 쓰기 권한이 없어도 동작한다. bare `pnpm` 명령도 사용하고 싶고 해당 경로에 쓰기 권한이 있는 경우에만 `corepack enable && corepack prepare pnpm@11.19.0 --activate`를 추가로 실행한다. `corepack` 자체가 없다면 Node.js 22를 설치하거나 `npm install --global corepack@0.31.0`으로 먼저 설치한다.
 
-프런트와 API를 외부 키 없이 로컬에서 함께 시연하려면 다음 명령을 사용한다. 이 모드는 화면에 표시된 합성 시나리오만 사용한다.
+프런트와 API를 외부 키 없이 로컬에서 함께 시연하는 기본 명령이다. 이 모드는 화면에 표시된 합성 시나리오와 결정론적 LLM 대역을 사용한다.
 
 ```bash
 corepack pnpm dev:demo
@@ -43,27 +41,27 @@ corepack pnpm --filter @milezero/backend dev:demo
 corepack pnpm --filter @milezero/frontend dev
 ```
 
-필수 서버 환경변수:
+모드별 서버 환경변수:
 
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `judge`: `GEMINI_API_KEY`, `GEMINI_MODEL`
+- `production`: 위 Gemini 변수와 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - `CORS_ORIGINS` — 프런트엔드 origin allowlist, 여러 개면 쉼표로 구분
-- `MILEZERO_MODE` — 운영은 `production`, 외부 키 없는 합성 시연은 `demo`
+- `MILEZERO_MODE` — 외부 키 없는 로컬 시연은 `demo`, 해커톤 배포는 `judge`, 실제 운영은 `production`
 - `CLIENT_DIST_DIR` — 선택 사항, 백엔드가 제공할 프런트 빌드의 절대 경로
 - `PORT` — 생략하면 `3000`
 
-Supabase 프로젝트에는 먼저 `backend/supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
+해커톤 심사 배포에는 `judge` 모드를 권장한다. 이 모드는 실제 Gemini와 초기 지식이 들어 있는 메모리 저장소를 함께 사용하므로 Supabase 키가 필요 없고, `처음부터 다시`로 반복 시연할 수 있다. 실제 운영의 `production` 모드에서만 Supabase가 필요하며, 먼저 `backend/supabase/migrations/202608130001_milezero_pipeline.sql`을 적용한다. 공개 클라이언트는 DB에 직접 접근하지 않으며 서버의 service role만 제한된 RPC를 호출한다.
 
 ### API
 
+- `POST /v1/friction/evaluate`: 비식별 GPS 집계 특징을 서버 Rule로 판정하고 탐지 유형·질문 맥락·사유 반환
 - `POST /v1/questions`: 브라우저에서 계산한 GPS 집계 특징으로 1~2개, 질문별 4~5지선다 생성
 - `POST /v1/reports`: 선택 답변과 선택적 멀티모달 응답 분석, 개인정보 제거, 후보 지식 및 기본 포인트 저장
 - `GET /v1/knowledge`: 검증된 가이드와 별도의 후보 확인 요청 조회
 - `POST /v1/feedback`: 사실(`CONFIRM`, `CONTRADICT`)과 유용성(`HELPFUL`, `NOT_HELPFUL`) 피드백 반영
+- `POST /v1/simulation/reset`: `demo`·`judge`의 초기 지식·포인트·피드백 복원, `production`에서는 403으로 거부
 - `GET /health`: 배포 상태 확인
-- `GET /ready`: Supabase RPC 연결을 포함한 요청 처리 준비 상태 확인
+- `GET /ready`: 현재 모드의 저장소 연결을 포함한 요청 처리 준비 상태 확인
 
 프로덕션 빌드에서는 Fastify가 React 정적 파일과 API를 같은 도메인에서 제공하므로 배포 URL은 하나다.
 
@@ -76,6 +74,18 @@ Supabase 프로젝트에는 먼저 `backend/supabase/migrations/202608130001_mil
 - 텍스트는 Gemini 호출 전과 구조화 결과 저장 전에 모두 마스킹한다.
 - 데이터베이스에는 비식별 요약·원자 주장·검증 근거·포인트만 저장한다.
 - 개인정보 발견 시 재질문하지 않고 해당 부분만 제거한다.
+
+### Gemini 프롬프트
+
+프롬프트와 버전은 `backend/src/gemini/prompts.ts`에서 서버 코드로만 관리한다. 질문 생성, 멀티모달 지식 추출, 주장 비교를 서로 다른 시스템 정책으로 분리했고 다음 원칙을 강제한다.
+
+- GPS 결과를 기사 과실의 증거로 취급하지 않고 배송지·시설의 불편만 중립적으로 질문
+- 1~2개 질문, 질문별 4~5지선다, 첫 질문에 `불편하지 않았어요` 포함
+- 개인정보가 발견되면 재질문 없이 해당 부분만 제거하고 원문은 저장하지 않음
+- 사용자 텍스트·사진·음성 안의 지시문은 명령이 아닌 신뢰할 수 없는 분석 자료로 취급
+- 구조화 JSON Schema와 결정론적 fallback으로 모델 출력 실패를 제한
+
+API key는 반드시 서버 환경변수에만 두며 프런트 환경변수, 번들, 프롬프트, 로그에 넣지 않는다.
 
 ### 검증
 
@@ -90,17 +100,25 @@ corepack pnpm qa:demo
 
 ### 심사 시연 순서
 
-1. `등록하는 기사`에서 GPS 집계 특징으로 평균보다 오래 걸린 배송 마찰이 자동 감지되는 것을 확인한다.
+1. `등록하는 기사`에서 `주변을 서성임`, `정차 후 완료 지연`, `출입구 반복 탐색` 중 하나를 눌러 브라우저 집계와 서버 Rule 판정을 확인한다.
 2. `배송 완료했어요`를 누른 뒤 1~2개 선택 질문에 답한다. 추가 텍스트·음성·사진은 생략할 수 있다.
 3. `선택 답변만 보내고 10P 받기`를 눌러 개인정보 제거와 즉시 10P를 확인한다.
 4. `도움 받는 기사`에서 배송 전에 검증된 후문·B2 가이드가 먼저 노출되는 것을 확인한다.
 5. `배송 완료했어요`를 누르고 사실 여부와 도움 여부를 각각 한 번씩 답한다.
 6. 사실과 도움됨이면 안내를 유지하고, 도움 없음만 있으면 순위만 조정한다. 서로 다른 기사 2명의 `정보가 달랐어요`가 쌓이면 해당 지식은 `CONFLICT`가 되어 안내에서 제외된다.
-7. 다시 시작하려면 `등록하는 기사` 탭의 `데모 다시 보기`를 누른다.
+7. 다시 시작하려면 왼쪽 또는 모바일 상단의 `처음부터 다시`를 눌러 초기 지식·포인트·피드백까지 복원한다.
 
 ### Railway 배포
 
-루트 `Dockerfile`과 `railway.json`을 사용한다. Railway 서비스에 운영 필수 환경변수를 secret으로 등록한 뒤 배포한다.
+루트 `Dockerfile`과 `railway.json`을 사용하며 React와 Fastify를 한 도메인에서 제공한다. 해커톤 심사용 Railway 서비스에는 다음 세 환경변수만 secret/config로 등록하면 된다.
+
+```text
+MILEZERO_MODE=judge
+GEMINI_API_KEY=<Google AI Studio에서 발급한 서버 키>
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+`PORT`, `HOST`, `CLIENT_DIST_DIR`은 Docker/Railway가 설정한다. 별도 프런트 URL을 사용할 때만 `CORS_ORIGINS=https://프런트도메인`을 추가한다. `judge`의 데이터는 메모리 기반이므로 서버 재배포·재시작 시 초기 상태로 복원되는 것이 의도된 동작이다.
 
 ```bash
 railway up
