@@ -51,9 +51,7 @@ export function App({ api }: { api: MileZeroApi }) {
       reporter.reset();
       receiver.reset();
       setTab("reporter");
-      setResetNotice(
-        "모든 제보·검증·포인트를 지우고 B2 예시 데이터만 복원했어요.",
-      );
+      setResetNotice("모든 제보·지식·검증·포인트를 지웠어요.");
     } catch (error) {
       setResetError(
         error instanceof Error ? error.message : "초기화하지 못했어요.",

@@ -121,14 +121,14 @@ describe("PostgreSQL 지식 저장소", () => {
     );
   });
 
-  it("초기화 요청을 DB의 원자적 예시 데이터 복원 함수에 위임한다", async () => {
+  it("초기화 요청을 DB의 원자적 전체 데이터 삭제 함수에 위임한다", async () => {
     const query = vi.fn(async () => ({ rows: [{ data: true }] }));
     const store = new PostgresKnowledgeStore({ query });
 
-    await expect(store.resetToExampleData()).resolves.toBeUndefined();
+    await expect(store.resetToEmptyData()).resolves.toBeUndefined();
 
     expect(query).toHaveBeenCalledWith(
-      "select public.mz_reset_to_example_data() as data",
+      "select public.mz_reset_to_empty_data() as data",
     );
   });
 

@@ -102,10 +102,10 @@ describe("서버 의존성 구성", () => {
     ).toThrow(/DATABASE_URL/);
   });
 
-  it("production 초기화는 PostgreSQL 데이터를 예시 지식만 남기도록 복원한다", async () => {
-    const resetToExampleData = vi.fn(async () => undefined);
+  it("production 초기화는 PostgreSQL 앱 데이터를 모두 지운다", async () => {
+    const resetToEmptyData = vi.fn(async () => undefined);
     const store = Object.assign(new InMemoryKnowledgeStore(), {
-      resetToExampleData,
+      resetToEmptyData,
     });
     const dependencies = createDependencies(
       {
@@ -122,10 +122,10 @@ describe("서버 의존성 구성", () => {
 
     await dependencies.resetSimulation?.();
 
-    expect(resetToExampleData).toHaveBeenCalledOnce();
+    expect(resetToEmptyData).toHaveBeenCalledOnce();
   });
 
-  it("judge 모드는 실제 Gemini 계약과 복원 가능한 초기 지식을 함께 사용한다", async () => {
+  it("judge 모드는 실제 Gemini 계약을 사용하고 초기화 시 데이터를 모두 지운다", async () => {
     const dependencies = createDependencies(
       {
         MILEZERO_MODE: "judge",
@@ -146,7 +146,12 @@ describe("서버 의존성 구성", () => {
 
     await dependencies.resetSimulation?.();
 
-    expect(dependencies.inspect?.().evidence).toHaveLength(3);
+    expect(dependencies.inspect?.()).toMatchObject({
+      reports: [],
+      claims: [],
+      evidence: [],
+      points: [],
+    });
   });
 
   it("알 수 없는 실행 모드를 거부한다", () => {

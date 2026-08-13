@@ -177,7 +177,7 @@ describe("Railway PostgreSQL 영속 저장 스키마", () => {
     await database.close();
   }, 30_000);
 
-  it("모든 운영 데이터를 지운 뒤 B2 예시 지식만 원자적으로 복원한다", async () => {
+  it("모든 앱 데이터를 원자적으로 지우고 빈 상태로 초기화한다", async () => {
     const database = new PGlite();
     const migrations = (await readdir(migrationsDirectory))
       .filter((filename) => filename.endsWith(".sql"))
@@ -211,7 +211,7 @@ describe("Railway PostgreSQL 영속 저장 스키마", () => {
 
     await expect(
       database.query<{ reset: boolean }>(
-        "select mz_reset_to_example_data() as reset",
+        "select mz_reset_to_empty_data() as reset",
       ),
     ).resolves.toMatchObject({ rows: [{ reset: true }] });
 
@@ -225,25 +225,12 @@ describe("Railway PostgreSQL 영속 저장 스키마", () => {
       (select count(*)::int from claims) claims,
       (select count(*)::int from claim_evidence) evidence,
       (select count(*)::int from points_ledger) points`);
-    const claims = await database.query<{
-      place_id: string;
-      value: string;
-      status: string;
-    }>("select place_id, value, status::text from claims");
-
     expect(counts.rows[0]).toEqual({
-      reports: 1,
-      claims: 1,
-      evidence: 3,
+      reports: 0,
+      claims: 0,
+      evidence: 0,
       points: 0,
     });
-    expect(claims.rows).toEqual([
-      {
-        place_id: "demo-office-tower",
-        value: "1톤 차량은 후문으로 진입 후 B2 하역장을 이용하세요",
-        status: "VERIFIED",
-      },
-    ]);
     await database.close();
   }, 30_000);
 });

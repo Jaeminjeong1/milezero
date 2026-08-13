@@ -22,7 +22,7 @@ type DependencyFactories = {
 };
 
 type ResettablePostgresStore = KnowledgeStore & {
-  resetToExampleData(): Promise<void>;
+  resetToEmptyData(): Promise<void>;
 };
 
 export function createDependencies(
@@ -50,7 +50,7 @@ export function createDependencies(
     pipeline: createPipeline(store, gateway),
     readiness: () => store.getPointBalance("readiness-probe"),
     inspect: undefined,
-    resetSimulation: () => store.resetToExampleData(),
+    resetSimulation: () => store.resetToEmptyData(),
   };
 }
 
@@ -65,7 +65,7 @@ function createSeededDependencies(
     readiness: () => store.getPointBalance("readiness-probe"),
     inspect: () => store.snapshot(),
     resetSimulation: async () => {
-      store.reset(createDemoKnowledgeSeed());
+      store.reset();
     },
   };
 }

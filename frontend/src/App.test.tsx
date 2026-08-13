@@ -267,7 +267,7 @@ describe("MileZero 역할별 홈", () => {
     expect(screen.getByText("1톤 차량은 후문으로 진입하세요")).toBeVisible();
   });
 
-  it("서버의 초기 데이터를 복원하고 두 기사 화면을 첫 상태로 되돌린다", async () => {
+  it("서버 데이터를 모두 지우고 두 기사 화면을 첫 상태로 되돌린다", async () => {
     const api = createApi();
     const user = userEvent.setup();
     render(<App api={api} />);
@@ -293,7 +293,7 @@ describe("MileZero 역할별 홈", () => {
     expect(screen.getByText("배송 마찰을 자동으로 찾고 있어요")).toBeVisible();
     expect(
       screen.getAllByText(
-        "모든 제보·검증·포인트를 지우고 B2 예시 데이터만 복원했어요.",
+        "모든 제보·지식·검증·포인트를 지웠어요.",
       )[0],
     ).toBeVisible();
   });
@@ -302,7 +302,7 @@ describe("MileZero 역할별 홈", () => {
     const api = createApi({
       resetSimulation: vi.fn(async () => {
         throw new ApiError(
-          "예시 데이터 복원에 실패했습니다.",
+          "데이터 초기화에 실패했습니다.",
           403,
           "SIMULATION_RESET_DISABLED",
         );
@@ -325,7 +325,7 @@ describe("MileZero 역할별 홈", () => {
     );
 
     expect(
-      await screen.findByText("예시 데이터 복원에 실패했습니다."),
+      await screen.findByText("데이터 초기화에 실패했습니다."),
     ).toBeVisible();
     expect(
       screen.getByRole("heading", { name: "출입구 반복 탐색이 감지됐어요" }),
